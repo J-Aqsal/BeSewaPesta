@@ -28,7 +28,7 @@ SECRET_KEY = 'django-insecure-#vnak@+sf$sar+j!2ee9$9q-%#pue2y@9o2p!4rge66$@373er
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['172.168.101.68', 'localhost', '10.178.162.16']
+ALLOWED_HOSTS = ['172.168.101.68', 'localhost', '10.178.162.16', '127.0.0.1']
 
 
 # Application definition
@@ -43,6 +43,9 @@ INSTALLED_APPS = [
     'corsheaders',
     'apps.cart',
     'apps.dbmirror',
+    'apps.products',
+    'apps.orders',
+    'apps.tmp_models',
 ]
 
 MIDDLEWARE = [
