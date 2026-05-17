@@ -25,6 +25,13 @@ class Products(models.Model):
         managed = False
         db_table = 'products'
 
+class ProductSpecifications(models.Model):
+    product = models.ForeignKey('Products', models.DO_NOTHING)
+    specification = models.TextField()
+
+    class Meta:
+        managed = False
+        db_table = 'product_specifications'
 
 class ProductGalleries(models.Model):
     product = models.ForeignKey(Products, models.DO_NOTHING)
