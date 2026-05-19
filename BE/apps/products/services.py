@@ -144,6 +144,9 @@ def calculate_price_range(product, prices_list):
     if prices_list:
         price_min_val = min(prices_list)
         price_max_val = max(prices_list)
+        # ubah ke int jika merupakan bilangan bulat
+        price_min_val = int(price_min_val) if float(price_min_val).is_integer() else float(price_min_val)
+        price_max_val = int(price_max_val) if float(price_max_val).is_integer() else float(price_max_val)
         return {"min": price_min_val, "max": price_max_val}
     else:
         # Fallback ke product price
