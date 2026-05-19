@@ -97,28 +97,25 @@ def calculate_available_stock(
     )
     return total_stock - used_stock
 
+def calculate_available_stock_for_combinations(product_id, combination_ids, start_date, end_date):
+    combination_ids = list(combination_ids)
+    if not combination_ids:
+        return {}
 
-def calculate_available_stock_for_variant_option(product_id, variant_option_id, start_date, end_date):
-    combo_ids = ProductVariantCombinationOptions.objects.filter(
-        variant_option_id=variant_option_id
-    ).values_list("product_variant_combination_id", flat=True)
-
-    if not combo_ids:
-        return 0
-
-    # Total stock
-    total_stock = (
-        ProductVariantCombinations.objects.filter(id__in=combo_ids).aggregate(
-            total=Sum("stock")
-        )["total"]
-        or 0
+    total_stock_rows = (
+        ProductVariantCombinations.objects.filter(product_id=product_id, id__in=combination_ids)
+        .values("id")
+        .annotate(total_stock=Sum("stock"))
     )
+    total_stock_map = {
+        row["id"]: int(row["total_stock"] or 0)
+        for row in total_stock_rows
+    }
 
-    # Used stock
-    used_stock = (
+    used_stock_rows = (
         OrderItems.objects.filter(
             product_id=product_id,
-            product_variant_combination_id__in=combo_ids,
+            product_variant_combination_id__in=combination_ids,
             order__rental_start__lt=end_date,
             order__rental_end__gt=start_date,
         )
@@ -129,8 +126,27 @@ def calculate_available_stock_for_variant_option(product_id, variant_option_id, 
                 order__rental_end__gte=(timezone.now() - timedelta(hours=24)),
             )
         )
-        .aggregate(total=Sum("quantity"))["total"]
-        or 0
+        .values("product_variant_combination_id")
+        .annotate(used_stock=Sum("quantity"))
     )
+    used_stock_map = {
+        row["product_variant_combination_id"]: int(row["used_stock"] or 0)
+        for row in used_stock_rows
+    }
 
-    return int(total_stock - used_stock)
+    return {
+        combination_id: int(total_stock_map.get(combination_id, 0) - used_stock_map.get(combination_id, 0))
+        for combination_id in combination_ids
+    }
+
+
+def calculate_price_range(product, prices_list):
+    if prices_list:
+        price_min_val = min(prices_list)
+        price_max_val = max(prices_list)
+        return {"min": price_min_val, "max": price_max_val}
+    else:
+        # Fallback ke product price
+        p = getattr(product, "price", None) or 0
+        p_val = int(p) if float(p).is_integer() else float(p)
+        return {"min": p_val, "max": p_val}

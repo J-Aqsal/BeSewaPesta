@@ -94,3 +94,13 @@ class ProductVariantCombinations(models.Model):
     class Meta:
         managed = False
         db_table = 'product_variant_combinations'
+
+class ProductVariantCombinationView(models.Model):
+    combination_id = models.IntegerField(primary_key=True)
+    product_id = models.IntegerField()
+    price = models.DecimalField(max_digits=12, decimal_places=2, blank=True, null=True)
+    stock = models.IntegerField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'product_variant_combination_view'
