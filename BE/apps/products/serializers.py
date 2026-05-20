@@ -162,7 +162,7 @@ class ProductDetailSerializer(
         return stock_map.get(obj.id, obj.total_stock)
 
     def get_gallery(self, obj):
-        galleries = obj.productgalleries_set.filter(variant_option__isnull=True).order_by("display_order", "id")
+        galleries = obj.productgalleries_set.filter(product_variant_combination__isnull=True).order_by("display_order", "id")
         return [g.image_url for g in galleries]
 
     def _build_variant_combination_context(self, obj):
@@ -201,19 +201,12 @@ class ProductDetailSerializer(
             all_option_ids.add(variant_option_id)
 
         gallery_rows = ProductGalleries.objects.filter(
-            variant_option_id__in=all_option_ids
-        ).order_by("display_order", "id").values_list("variant_option_id", "image_url")
-
-        gallery_by_option = {}
-        for variant_option_id, image_url in gallery_rows:
-            gallery_by_option.setdefault(variant_option_id, []).append(image_url)
+           product_variant_combination_id__in=combination_ids
+        ).order_by("display_order", "id").values_list("product_variant_combination_id", "image_url")
 
         gallery_map = {}
-        for combination_id, option_ids in option_map.items():
-            combination_galleries = []
-            for variant_option_id in option_ids:
-                combination_galleries.extend(gallery_by_option.get(variant_option_id, []))
-            gallery_map[combination_id] = combination_galleries
+        for combination_id, image_url in gallery_rows:
+            gallery_map.setdefault(combination_id, []).append(image_url)
 
         start_date = self.context.get("start_date")
         end_date = self.context.get("end_date")
