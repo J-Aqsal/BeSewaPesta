@@ -35,7 +35,7 @@ class ProductSpecifications(models.Model):
 
 class ProductGalleries(models.Model):
     product = models.ForeignKey(Products, models.DO_NOTHING)
-    variant_option = models.ForeignKey('VariantOptions', models.DO_NOTHING, blank=True, null=True)
+    product_variant_combination = models.ForeignKey('ProductVariantCombinations', models.DO_NOTHING, blank=True, null=True)
     image_url = models.TextField()
     display_order = models.IntegerField(blank=True, null=True)
     created_at = models.DateTimeField(blank=True, null=True)
