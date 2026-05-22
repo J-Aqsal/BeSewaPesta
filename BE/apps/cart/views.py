@@ -25,10 +25,7 @@ def touch_cart(request):
     print(f"touch_cart called with guest_id: {guest_id} {timezone.now()}")  # Debug print
 
     now = timezone.now()
-    local_now = timezone.localtime(now)
 
-    print(f"UTC: {now}")
-    print(f"WIB: {local_now}")
     if not guest_id:
         return Response({"error": "guest_id required"}, status=400)
 

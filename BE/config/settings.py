@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'apps.dbmirror',
     'apps.products',
     'apps.orders',
+    'apps.carts',
     'apps.tmp_models',
 ]
 
