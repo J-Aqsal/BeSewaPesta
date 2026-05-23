@@ -5,6 +5,6 @@ from .views import UpSellAPIView, CrossSellAPIView
 
 
 urlpatterns = [
-    path("upsell/", UpSellAPIView.as_view()),
-    path("crosssell/", CrossSellAPIView.as_view()),
+    path("up-sell/", UpSellAPIView.as_view()),
+    path("cross-sell/", CrossSellAPIView.as_view()),
 ]
