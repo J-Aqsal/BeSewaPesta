@@ -1,11 +1,20 @@
-from apps.products.queries import calculateAvailableStock, calculateAvailableStockForCombinations
-
-from .queries import getCartByGuestId, getCartItemsByCartId, getVariantCombinationDetail
-
-
+from apps.products.queries import (
+    calculateAvailableStock, 
+    calculateAvailableStockForCombinations,
+    validateProductCombination
+)
+from .queries import (
+    getCartByGuestId, 
+    getCartItemsByCartId, 
+    getVariantCombinationDetail, 
+    updateCartRentalDates, 
+    createCart,
+    getCartItem,
+    addCartItem,
+    updateCartItemQuantity
+)
 
 def getCartDetailByGuestId(guestId):
-
     cart = getCartByGuestId(guestId)
 
     if not cart:
@@ -19,27 +28,16 @@ def getCartDetailByGuestId(guestId):
     items = []
 
     for item in cartItems:
-
         productId = item["product_id"]
         combinationId = item["product_variant_combination_id"]
         quantity = item["quantity"]
 
         if combinationId:
-
             stockMap = calculateAvailableStockForCombinations(productId, [combinationId], rentalStart, rentalEnd)
             availableStock = stockMap.get(combinationId, 0)
             pricePerItem = item["combination_price"] or 0
-
         else:
-
-            product = {
-                "id": productId,
-                "total_stock": item["total_stock"]
-            }
-
-            availableStock = calculateAvailableStock(product["id"], rentalStart, rentalEnd)
-            
-
+            availableStock = calculateAvailableStock(productId, rentalStart, rentalEnd)
             pricePerItem = item["product_price"] or 0
 
         subtotalPrice = int(pricePerItem) * int(quantity)
@@ -47,7 +45,6 @@ def getCartDetailByGuestId(guestId):
         variantCombination = None
 
         if combinationId:
-
             variants = getVariantCombinationDetail(combinationId)
             variantCombination = {
                 "idVariantCombination": combinationId,
@@ -75,3 +72,35 @@ def getCartDetailByGuestId(guestId):
         "rentalEnd": rentalEnd,
         "items": items
     }
+
+
+def upsertCart(guestId, rentalStart, rentalEnd):
+    cart = getCartByGuestId(guestId)
+
+    if cart:
+        updateCartRentalDates(cart['id'], rentalStart, rentalEnd)
+        return {"id": cart['id'], "action": "updated"}
+    else:
+        new_cart = createCart(guestId, rentalStart, rentalEnd)
+        return {"id": new_cart['id'], "action": "created"}
+
+
+def addItemToCart(guestId, productId, combinationId, quantity):
+    cart = getCartByGuestId(guestId)
+    if not cart:
+        return {"success": False, "message": "Cart not found. Please set rental dates first."}
+
+    if combinationId:
+        isValid = validateProductCombination(productId, combinationId)
+        if not isValid:
+            return {"success": False, "message": "Invalid variant combination for this product."}
+
+    existingItem = getCartItem(cart['id'], productId, combinationId)
+    
+    if existingItem:
+        newQuantity = existingItem['quantity'] + int(quantity)
+        updateCartItemQuantity(existingItem['id'], newQuantity)
+        return {"success": True, "message": "Item quantity updated in cart.", "cartId": cart['id']}
+    else:
+        addCartItem(cart['id'], productId, combinationId, quantity)
+        return {"success": True, "message": "Item added to cart.", "cartId": cart['id']}
