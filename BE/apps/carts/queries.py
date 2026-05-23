@@ -168,3 +168,20 @@ def updateCartItemQuantity(cartItemId, newQuantity):
         UPDATE cart_items SET quantity = %s WHERE id = %s
     """
     dbExecute(query, [newQuantity, cartItemId])
+
+
+def validateCartItemOwnership(cartItemId, guestId):
+    query = """
+        SELECT 1 FROM cart_items ci
+        JOIN carts c ON c.id = ci.cart_id
+        WHERE ci.id = %s AND c.guest_id = %s
+    """
+    result = dbFetch(query, [cartItemId, guestId])
+    return result is not None
+
+
+def deleteCartItem(cartItemId):
+    query = """
+        DELETE FROM cart_items WHERE id = %s
+    """
+    dbExecute(query, [cartItemId])
