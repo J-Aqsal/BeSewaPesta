@@ -1,4 +1,4 @@
-from utils.db import dbFetch
+from utils.db import dbFetch, dbExecute
 
 
 def getCartByGuestId(guestId):
@@ -120,3 +120,51 @@ def getVariantCombinationDetail(combinationId):
         })
 
     return variants
+
+
+def createCart(guestId, rentalStart, rentalEnd):
+    query = """
+        INSERT INTO carts (guest_id, rental_start, rental_end, created_at, updated_at)
+        VALUES (%s, %s, %s, NOW(), NOW())
+        RETURNING id
+    """
+    return dbExecute(query, [guestId, rentalStart, rentalEnd], returning=True)
+
+
+def updateCartRentalDates(cartId, rentalStart, rentalEnd):
+    query = """
+        UPDATE carts 
+        SET rental_start = %s, rental_end = %s, updated_at = NOW()
+        WHERE id = %s
+    """
+    dbExecute(query, [rentalStart, rentalEnd, cartId])
+
+
+def getCartItem(cartId, productId, combinationId=None):
+    if combinationId:
+        query = """
+            SELECT id, quantity FROM cart_items
+            WHERE cart_id = %s AND product_id = %s AND product_variant_combination_id = %s
+        """
+        return dbFetch(query, [cartId, productId, combinationId])
+    else:
+        query = """
+            SELECT id, quantity FROM cart_items
+            WHERE cart_id = %s AND product_id = %s AND product_variant_combination_id IS NULL
+        """
+        return dbFetch(query, [cartId, productId])
+
+
+def addCartItem(cartId, productId, combinationId, quantity):
+    query = """
+        INSERT INTO cart_items (cart_id, product_id, product_variant_combination_id, quantity, created_at)
+        VALUES (%s, %s, %s, %s, NOW())
+    """
+    dbExecute(query, [cartId, productId, combinationId, quantity])
+
+
+def updateCartItemQuantity(cartItemId, newQuantity):
+    query = """
+        UPDATE cart_items SET quantity = %s WHERE id = %s
+    """
+    dbExecute(query, [newQuantity, cartItemId])
