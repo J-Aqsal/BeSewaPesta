@@ -1,155 +1,74 @@
-from datetime import timedelta
+from .queries import (
+    calculateAvailableStock,
+    calculatePriceRange,
+    getProductById,
+    getProductGalleries,
+    getProductSpecifications,
+    getProducts,
+    getVariantCombinations,
+    getVariantTypes,
+)
 
-from django.db.models import Q, Sum
-from django.utils import timezone
+def getProductCatalogData(start_date, end_date):
+    catalog = []
+    products = getProducts()
+    if not products:
+        return catalog
 
-from apps.orders.models import OrderItems
-from .models import VariantTypes, ProductVariantCombinationOptions, ProductVariantCombinations
-
-"""
-service.py berisi fungsi-fungsi yang mengandung logika bisnis terkait produk, 
-seperti perhitungan stok yang tersedia berdasarkan pesanan yang sudah ada. 
-Fungsi calculate_available_stock menghitung stok yang tersedia untuk suatu produk dalam 
-rentang tanggal tertentu dengan mempertimbangkan pesanan yang sedang aktif dan pesanan 
-yang baru saja selesai.
-"""
-
-ACTIVE_STATUSES = [
-    "PENDING",
-    "DP",
-    "PAID"
-]
-
-
-def calculate_available_stock(
-    product,
-    start_date,
-    end_date
-):
-
-    has_variant = VariantTypes.objects.filter(
-        product=product
-    ).exists()
-
-    if not has_variant:
-
-        total_stock = product.total_stock
-
-        used_stock = (
-            OrderItems.objects.filter(
-                product=product,
-
-                order__rental_start__lt=end_date,
-                order__rental_end__gt=start_date
-            )
-            .filter(
-                Q(
-                    order__status__code__in=ACTIVE_STATUSES
-                )
-                |
-                Q(
-                    order__status__code="COMPLETED",
-                    order__rental_end__gte=(
-                        timezone.now() - timedelta(hours=24)
-                    )
-                )
-            )
-            .aggregate(
-                total=Sum("quantity")
-            )["total"]
-            or 0
-        )
-        
-        return total_stock - used_stock
-
-    total_stock = (
-        product.productvariantcombinations_set.aggregate(
-            total=Sum("stock")
-        )["total"]
-        or 0
+    stockMap = calculateAvailableStock(
+        [product["id"] for product in products],
+        start_date,
+        end_date,
     )
 
-    used_stock = (
-        OrderItems.objects.filter(
-            product=product,
-
-            order__rental_start__lt=end_date,
-            order__rental_end__gt=start_date,
-
-            product_variant_combination__isnull=False
-        )
-        .filter(
-            Q(
-                order__status__code__in=ACTIVE_STATUSES
-            )
-            |
-            Q(
-                order__status__code="COMPLETED",
-                order__rental_end__gte=(
-                    timezone.now() - timedelta(hours=24)
-                )
-            )
-        )
-        .aggregate(
-            total=Sum("quantity")
-        )["total"]
-        or 0
+    priceValuesMap = getVariantCombinations(
+        [product["id"] for product in products],
+        start_date,
+        end_date,
     )
-    return total_stock - used_stock
 
-def calculate_available_stock_for_combinations(product_id, combination_ids, start_date, end_date):
-    combination_ids = list(combination_ids)
-    if not combination_ids:
-        return {}
-
-    total_stock_rows = (
-        ProductVariantCombinations.objects.filter(product_id=product_id, id__in=combination_ids)
-        .values("id")
-        .annotate(total_stock=Sum("stock"))
-    )
-    total_stock_map = {
-        row["id"]: int(row["total_stock"] or 0)
-        for row in total_stock_rows
-    }
-
-    used_stock_rows = (
-        OrderItems.objects.filter(
-            product_id=product_id,
-            product_variant_combination_id__in=combination_ids,
-            order__rental_start__lt=end_date,
-            order__rental_end__gt=start_date,
+    for product in products:
+        catalog.append(
+            {
+                "id": product["id"],
+                "name": product["name"],
+                "image": product["photo"],
+                "priceRange": calculatePriceRange(product["price"], priceValuesMap.get(product["id"], [])),
+                "priceUnit": product["price_unit"],
+                "stock": stockMap.get(product["id"], 0),
+            }
         )
-        .filter(
-            Q(order__status__code__in=ACTIVE_STATUSES)
-            | Q(
-                order__status__code="COMPLETED",
-                order__rental_end__gte=(timezone.now() - timedelta(hours=24)),
-            )
-        )
-        .values("product_variant_combination_id")
-        .annotate(used_stock=Sum("quantity"))
+
+    return catalog
+
+
+def getProductDetailData(product_id, start_date, end_date):
+    product = getProductById(product_id)
+
+    if not product:
+        return None
+
+    variantTypes = getVariantTypes(product_id)
+    variantCombinations, priceValues = getVariantCombinations(
+        product_id,
+        start_date,
+        end_date,
     )
-    used_stock_map = {
-        row["product_variant_combination_id"]: int(row["used_stock"] or 0)
-        for row in used_stock_rows
-    }
 
     return {
-        combination_id: int(total_stock_map.get(combination_id, 0) - used_stock_map.get(combination_id, 0))
-        for combination_id in combination_ids
+        "idProduct": product["id"],
+        "productName": product["name"],
+        "productDescription": product["description"],
+        "priceRange": calculatePriceRange(product["price"], priceValues),
+        "unitPrice": product["price_unit"],
+        "availableStock": calculateAvailableStock(
+            product_id,
+            start_date,
+            end_date,
+        ),
+        "thumbnail": product["photo"],
+        "gallery": getProductGalleries(product_id),
+        "variantTypes": variantTypes,
+        "variantCombinations": variantCombinations,
+        "specifications": getProductSpecifications(product_id),
     }
-
-
-def calculate_price_range(product, prices_list):
-    if prices_list:
-        price_min_val = min(prices_list)
-        price_max_val = max(prices_list)
-        # ubah ke int jika merupakan bilangan bulat
-        price_min_val = int(price_min_val) if float(price_min_val).is_integer() else float(price_min_val)
-        price_max_val = int(price_max_val) if float(price_max_val).is_integer() else float(price_max_val)
-        return {"min": price_min_val, "max": price_max_val}
-    else:
-        # Fallback ke product price
-        p = getattr(product, "price", None) or 0
-        p_val = int(p) if float(p).is_integer() else float(p)
-        return {"min": p_val, "max": p_val}

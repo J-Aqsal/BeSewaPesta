@@ -1,52 +1,28 @@
-from rest_framework.response import Response
 from rest_framework.views import APIView
+from utils.responses import successResponse, errorResponse
+from utils.constants import BAD_REQUEST_CODE, NOT_FOUND_CODE
 
-from .models import Products
-from .serializers import (
-    ProductCatalogSerializer,
-    ProductDetailSerializer,
+from .services import (
+    getProductCatalogData,
+    getProductDetailData,
 )
-from .services import calculate_available_stock
 
 class ProductListAPIView(APIView):
 
     def post(self, request):
 
-        start_date = request.data.get(
-            "startDate"
-        )
+        start_date = request.data.get("startDate")
+        end_date = request.data.get("endDate")
 
-        end_date = request.data.get(
-            "endDate"
-        )
+        products = getProductCatalogData(start_date, end_date)
 
-        products = Products.objects.all()
-
-        stock_map = {}
-
-        for product in products:
-
-            stock_map[product.id] = (
-                calculate_available_stock(
-                    product,
-                    start_date,
-                    end_date
-                )
+        if not products:
+            return errorResponse(
+                message="Products not found",
+                code=NOT_FOUND_CODE
             )
 
-        serializer = ProductCatalogSerializer(
-            products,
-            many=True,
-            context={
-                "stock_map": stock_map
-            }
-        )
-
-        return Response({
-            "code": 200,
-            "success": True,
-            "data": serializer.data
-        })
+        return successResponse(data=products)
     
 class ProductDetailAPIView(APIView):
     def post(self, request):
@@ -55,36 +31,17 @@ class ProductDetailAPIView(APIView):
         end_date = request.data.get("endDate")
         
         if not product_id:
-            return Response({
-                "code": 400,
-                "success": False,
-                "error": "idProduct wajib diisi"
-            }, status=400)
-        
-        # Ambil 1 produk berdasarkan id
-        product = Products.objects.filter(id=product_id).first()
+            return errorResponse(
+                message="idProduct required",
+                code=BAD_REQUEST_CODE
+            )
 
-        if product is None:
-            return Response({
-                "code": 404,
-                "success": False,
-                "error": "Produk tidak ditemukan"
-            }, status=404)
+        product = getProductDetailData(product_id, start_date, end_date)
 
-        # Stock product level
-        available_stock = calculate_available_stock(
-            product,
-            start_date,
-            end_date,
-        )
+        if not product:
+            return errorResponse(
+                message="Product not found",
+                code=NOT_FOUND_CODE
+            )
 
-        serializer = ProductDetailSerializer(
-            product,
-            context={
-                "stock_map": {product.id: available_stock},
-                "start_date": start_date,
-                "end_date": end_date,
-            },
-        )
-
-        return Response({"code": 200, "success": True, "data": serializer.data})
+        return successResponse(data=product)
