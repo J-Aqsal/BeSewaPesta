@@ -325,6 +325,39 @@ def getVariantTypes(product_id):
 
 
 def getVariantCombinations(product_id, start_date, end_date):
+    # Cek kalau request untuk catalog (bulk) atau detail (single)
+    isBulkRequest = isinstance(product_id, (list, tuple, set))
+
+    if isBulkRequest:
+        product_ids = list(product_id)
+        if not product_ids:
+            return {}
+
+        rows = dbFetch(
+            """
+            SELECT
+                pvc.product_id,
+                pvcv.price
+            FROM product_variant_combinations pvc
+            LEFT JOIN product_variant_combination_view pvcv
+                ON pvcv.combination_id = pvc.id
+            WHERE pvc.product_id = ANY(%s)
+            ORDER BY pvc.product_id, pvc.id
+            """,
+            [product_ids],
+            fetchAll=True,
+        ) or []
+
+        price_values_map = {}
+        for row in rows:
+            price = row["price"]
+            if price is None:
+                continue
+
+            price_values_map.setdefault(row["product_id"], []).append(price)
+
+        return price_values_map
+
     query = """
         SELECT
             pvc.id AS combination_id,
