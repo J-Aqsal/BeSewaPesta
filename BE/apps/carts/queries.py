@@ -185,3 +185,10 @@ def deleteCartItem(cartItemId):
         DELETE FROM cart_items WHERE id = %s
     """
     dbExecute(query, [cartItemId])
+
+
+def clearCart(cartId):
+    query_items = "DELETE FROM cart_items WHERE cart_id = %s"
+    query_cart = "DELETE FROM carts WHERE id = %s"
+    dbExecute(query_items, [cartId])
+    dbExecute(query_cart, [cartId])
