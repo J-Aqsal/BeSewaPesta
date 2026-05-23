@@ -11,7 +11,9 @@ from .queries import (
     createCart,
     getCartItem,
     addCartItem,
-    updateCartItemQuantity
+    updateCartItemQuantity,
+    validateCartItemOwnership,
+    deleteCartItem
 )
 
 def getCartDetailByGuestId(guestId):
@@ -104,3 +106,13 @@ def addItemToCart(guestId, productId, combinationId, quantity):
     else:
         addCartItem(cart['id'], productId, combinationId, quantity)
         return {"success": True, "message": "Item added to cart.", "cartId": cart['id']}
+
+
+def removeItemFromCart(cartItemId, guestId):
+    isValid = validateCartItemOwnership(cartItemId, guestId)
+    
+    if not isValid:
+        return {"success": False, "message": "Item not found or does not belong to your cart."}
+    
+    deleteCartItem(cartItemId)
+    return {"success": True, "message": "Item removed from cart."}

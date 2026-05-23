@@ -1,5 +1,5 @@
 from rest_framework.views import APIView
-from .services import getCartDetailByGuestId, upsertCart, addItemToCart
+from .services import getCartDetailByGuestId, upsertCart, addItemToCart, removeItemFromCart
 from utils.responses import successResponse, errorResponse
 from utils.constants import BAD_REQUEST_CODE, NOT_FOUND_CODE
 
@@ -65,3 +65,20 @@ class CartAddItemAPIView(APIView):
             return errorResponse(message=result["message"])
 
         return successResponse(message=result["message"], data={"cartId": result["cartId"]})
+
+
+class CartDeleteItemAPIView(APIView):
+
+    def post(self, request):
+        guestId = request.data.get("guestId")
+        cartItemId = request.data.get("idCartItem")
+
+        if not guestId or not cartItemId:
+            return errorResponse(message="guestId and idCartItem are required")
+
+        result = removeItemFromCart(cartItemId, guestId)
+
+        if not result["success"]:
+            return errorResponse(message=result["message"])
+
+        return successResponse(message=result["message"])
