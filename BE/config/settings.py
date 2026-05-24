@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'apps.carts',
     'apps.tmp_models',
     'apps.recommendations',
+    'apps.authentication',
 ]
 
 MIDDLEWARE = [

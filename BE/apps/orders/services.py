@@ -3,8 +3,7 @@ from datetime import datetime, timedelta
 from django.db import transaction
 from apps.carts.services import getCartDetailByGuestId
 from apps.carts.queries import clearCart
-from .queries import insertOrder, insertOrderItem
-
+from .queries import insertOrder, insertOrderItem, getOrders, getOrderByOrderId, getOrderItemsByOrderId, getCombinationNameByOrderId
 def calculateDurationDays(startDate, endDate):
     if not startDate or not endDate:
         return 1
@@ -140,3 +139,55 @@ def processCheckout(guestId, recipientName, phoneNumber, shippingAddress, city):
         }
     except Exception as e:
         return {"success": False, "message": str(e)}
+
+def getAllOrders():
+    orders = getOrders()
+    formattedOrders = []
+    for order in orders:
+        formattedOrders.append({
+            "idOrder": order["order_id"],
+            "recipientName": order["recipient_name"],
+            "rentalStart": order["rental_start"],
+            "rentalEnd": order["rental_end"],
+            "phoneNumber": order["phone_number"],
+            "shippingAddress": order["shipping_address"],
+            "totalPrice": int(order["total_price"]),
+            "status": order["status_name"]
+        })
+    return formattedOrders
+
+def getOrderDetail(orderId):
+    orderRows = getOrderByOrderId(orderId)
+    if not orderRows:
+        return None
+
+    order = orderRows[0]
+
+    orderItems = getOrderItemsByOrderId(orderId)
+    combinationNames = getCombinationNameByOrderId(orderId)
+    combinationNameMap = {item["order_item_id"]: item["combination_name"] for item in combinationNames}
+
+    formattedItems = []                 
+    for item in orderItems:
+        formattedItems.append({
+            "idProduct": item["product_id"],
+            "productName": item["product_name"],
+            "combinationName": combinationNameMap.get(item["order_item_id"], "-"),
+            "quantity": item["quantity"],
+            "pricePerItem": int(item["price"]),
+            "subtotal": int(item["price"] * item["quantity"]),
+        })
+
+    return {
+        "idOrder": order["order_id"],
+        "recipientName": order["recipient_name"],
+        "rentalStart": order["rental_start"],
+        "rentalEnd": order["rental_end"],
+        "phoneNumber": order["phone_number"],
+        "shippingAddress": order["shipping_address"],
+        "city": order["city"],
+        "shippingCost": int(order["shipping_cost"]),
+        "totalPrice": int(order["total_price"]),
+        "status": order["status_name"],
+        "items": formattedItems,
+    }
