@@ -1,7 +1,12 @@
+import token
+
 from rest_framework.views import APIView
 from apps.carts.services import getCartDetailByGuestId
+from apps.orders.queries import getOrders
+from utils.constants import AUTHENTICATION_FAILED_CODE
 from .services import calculateShippingCostService, processCheckout, getRentalSummaryService
-from utils.responses import successResponse, errorResponse
+from utils.responses import authenticationFailedResponse, successResponse, errorResponse
+from apps.authentication.utils import decodeJwtToken
 
 class ShippingCostAPIView(APIView):
     def post(self, request):
@@ -52,3 +57,16 @@ class RentalSummaryAPIView(APIView):
             return errorResponse(message="Cart is empty or not found")
 
         return successResponse(data=summary)
+
+class OrderListAPIView(APIView):
+    def get(self, request):
+        authHeader = request.headers.get('Authorization')
+        if not authHeader:
+            return authenticationFailedResponse(message="Authorization header missing")
+        token = authHeader.split(' ')[1]
+        payload = decodeJwtToken(token)
+        if not payload:
+            return authenticationFailedResponse(message="Invalid token")
+        orders = getOrders()
+        return successResponse(data=orders)
+    
