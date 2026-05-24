@@ -41,21 +41,66 @@ def getOrders():
         JOIN order_statuses s ON o.status_id = s.id
         ORDER BY o.created_at DESC
     """
-    # format json
     orders = dbFetch(query, [], fetchAll=True) or []
-    formattedOrders = []
-    for order in orders:
-        formattedOrders.append({
-            "idOrder": order["order_id"],
-            "recipientName": order["recipient_name"],
-            "rentalStart": order["rental_start"],
-            "rentalEnd": order["rental_end"],
-            "phoneNumber": order["phone_number"],
-            "shippingAddress": order["shipping_address"],
-            "totalPrice": int(order["total_price"]),
-            "status": order["status_name"]
-        })
-    return formattedOrders
+
+    return orders
+
+def getOrderByOrderId(orderId):
+    query = """
+        SELECT 
+            o.id AS order_id,
+            o.guest_id,
+            o.total_price,
+            o.rental_start,
+            o.rental_end,
+            o.recipient_name,
+            o.phone_number,
+            o.shipping_address,
+            o.city,
+            o.shipping_cost,
+            s.name AS status_name
+        FROM orders o
+        JOIN order_statuses s ON o.status_id = s.id
+        WHERE o.id = %s
+    """
+    orders = dbFetch(query, [orderId], fetchAll=True) or []
+
+    return orders
+
+def getOrderItemsByOrderId(orderId):
+    query = """
+        SELECT 
+            oi.id AS order_item_id,
+            oi.product_id,
+            p.name AS product_name,
+            oi.quantity,
+            oi.price,
+            oi.product_variant_combination_id,
+            c.name AS category_name,
+            p.photo AS thumbnail
+        FROM order_items oi
+        JOIN products p ON oi.product_id = p.id
+        JOIN categories c ON p.category_id = c.id
+        WHERE oi.order_id = %s
+    """
+    return dbFetch(query, [orderId], fetchAll=True) or []
+
+
+def getCombinationNameByOrderId(orderId):
+    query = """
+        SELECT 
+            oi.id AS order_item_id,
+            STRING_AGG(vo.value, ' , ') AS combination_name
+        FROM order_items oi
+        LEFT JOIN product_variant_combination_options pvco
+            ON pvco.product_variant_combination_id = oi.product_variant_combination_id
+        LEFT JOIN variant_options vo
+            ON vo.id = pvco.variant_option_id
+        WHERE oi.order_id = %s
+        GROUP BY oi.id
+        ORDER BY oi.id
+    """
+    return dbFetch(query, [orderId], fetchAll=True) or []
 
 def updateOrderStatus(orderId, newStatusId):
     query = """
