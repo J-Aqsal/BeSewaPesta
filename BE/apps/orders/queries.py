@@ -90,14 +90,14 @@ def getCombinationNameByOrderId(orderId):
     query = """
         SELECT 
             oi.id AS order_item_id,
-            STRING_AGG(vo.value, ' , ') AS combination_name
+            vo.value AS combination_name
         FROM order_items oi
         LEFT JOIN product_variant_combination_options pvco
             ON pvco.product_variant_combination_id = oi.product_variant_combination_id
         LEFT JOIN variant_options vo
             ON vo.id = pvco.variant_option_id
         WHERE oi.order_id = %s
-        GROUP BY oi.id
+        GROUP BY oi.id, vo.value
         ORDER BY oi.id
     """
     return dbFetch(query, [orderId], fetchAll=True) or []

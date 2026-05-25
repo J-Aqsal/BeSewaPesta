@@ -164,15 +164,21 @@ def getOrderDetail(orderId):
     order = orderRows[0]
 
     orderItems = getOrderItemsByOrderId(orderId)
-    combinationNames = getCombinationNameByOrderId(orderId)
-    combinationNameMap = {item["order_item_id"]: item["combination_name"] for item in combinationNames}
+    combinationRows = getCombinationNameByOrderId(orderId)
+    combinationNamesByItemId = {}
+
+    for combinationRow in combinationRows:
+        orderItemId = combinationRow["order_item_id"]
+        if orderItemId not in combinationNamesByItemId:
+            combinationNamesByItemId[orderItemId] = []
+        combinationNamesByItemId[orderItemId].append(combinationRow["combination_name"])
 
     formattedItems = []                 
     for item in orderItems:
         formattedItems.append({
             "idProduct": item["product_id"],
             "productName": item["product_name"],
-            "combinationName": combinationNameMap.get(item["order_item_id"], "-"),
+            "combinationName": combinationNamesByItemId.get(item["order_item_id"], []),
             "quantity": item["quantity"],
             "pricePerItem": int(item["price"]),
             "subtotal": int(item["price"] * item["quantity"]),
