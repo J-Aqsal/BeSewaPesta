@@ -1,12 +1,8 @@
-from django.views.decorators.csrf import csrf_exempt
-from django.utils.decorators import method_decorator
-
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from apps.carts.services import getCartDetailByGuestId
-from utils.constants import AUTHENTICATION_FAILED_CODE
 from .services import calculateShippingCostService, processCheckout, getRentalSummaryService, getAllOrders, getOrderDetail
-from utils.responses import authenticationFailedResponse, successResponse, errorResponse
-from apps.authentication.utils import decodeJwtToken
+from utils.responses import successResponse, errorResponse
 
 class ShippingCostAPIView(APIView):
     def post(self, request):
@@ -59,30 +55,16 @@ class RentalSummaryAPIView(APIView):
         return successResponse(data=summary)
 
 class OrderListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
-        authHeader = request.headers.get('Authorization')
-        if not authHeader:
-            return authenticationFailedResponse(message="Authorization header missing")
-        token = authHeader.split(' ')[1]
-        payload = decodeJwtToken(token)
-        if not payload:
-            return authenticationFailedResponse(message="Invalid token")
         orders = getAllOrders()
         return successResponse(data=orders)
     
-@method_decorator(csrf_exempt, name='dispatch')
 class OrderDetailAPIView(APIView):
-    authentication_classes = [] # mematikan auth bawaan DRF
-    permission_classes = [] # mematikan permission bawaan DRF
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        authHeader = request.headers.get('Authorization')
-        if not authHeader:
-            return authenticationFailedResponse(message="Authorization header missing")
-        token = authHeader.split(' ')[1]
-        payload = decodeJwtToken(token)
-        if not payload:
-            return authenticationFailedResponse(message="Invalid token")
         orderId = request.data.get("orderId")
         if not orderId:
             return errorResponse(message="orderId is required")
