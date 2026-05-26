@@ -1,4 +1,4 @@
-from .queries import (
+from .repo import (
     calculateAvailableStock,
     calculatePriceRange,
     getProductById,
