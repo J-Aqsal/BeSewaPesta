@@ -13,6 +13,7 @@ class UpSellAPIView(APIView):
         startDate = request.data.get("startDate")
         endDate = request.data.get("endDate")
         quantity = request.data.get("quantity", 1)
+        isFromRecommendation = request.data.get("isFromRecommendation", False)
 
         if not productId:
             return errorResponse(
@@ -27,7 +28,8 @@ class UpSellAPIView(APIView):
             variantId, 
             startDate, 
             endDate,
-            quantity
+            quantity,
+            isFromRecommendation
         )
 
         return successResponse(data=recommendations)
