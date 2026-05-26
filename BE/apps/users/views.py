@@ -5,16 +5,16 @@ from utils.responses import successResponse, errorResponse
 from .services import getAdminListService, createAdminService, deleteAdminService, editAdminService
 
 class AdminManagementAPIView(APIView):
-    # Seluruh endpoint manajemen admin ini hanya bisa diakses oleh Super Admin
+    # All admin management endpoints can only be accessed by Super Admin
     permission_classes = [IsAuthenticated, IsSuperAdmin]
 
     def get(self, request):
-        """Ambil daftar semua Admin (Super Admin dikecualikan)"""
+        """Get a list of all Admins (Super Admin excluded)"""
         admins = getAdminListService()
         return successResponse(data=admins)
 
     def post(self, request):
-        """Tambah akun Admin baru"""
+        """Add a new Admin account"""
         username = request.data.get("username")
         password = request.data.get("password")
         fullName = request.data.get("fullName")
@@ -31,7 +31,7 @@ class AdminManagementAPIView(APIView):
         return successResponse(message=result["message"])
 
     def patch(self, request):
-        """Update detail akun Admin (Username, Nama, Password, Status)"""
+        """Update Admin account details (Username, Name, Password, Status)"""
         idAdmin = request.data.get("idAdmin")
         username = request.data.get("username")
         fullName = request.data.get("fullName")
@@ -41,7 +41,7 @@ class AdminManagementAPIView(APIView):
         if not idAdmin:
             return errorResponse(message="idAdmin is required.")
 
-        # Mencegah Super Admin menonaktifkan dirinya sendiri
+        # Prevent Super Admin from deactivating their own account
         if idAdmin == request.user.id and isActive is False:
             return errorResponse(message="You cannot deactivate your own account.")
 
@@ -53,13 +53,13 @@ class AdminManagementAPIView(APIView):
         return successResponse(message=result["message"])
 
     def delete(self, request):
-        """Hapus akun Admin secara permanen"""
+        """Delete an Admin account permanently"""
         idAdmin = request.data.get("idAdmin")
 
         if not idAdmin:
             return errorResponse(message="idAdmin is required.")
 
-        # Mencegah Super Admin menghapus dirinya sendiri
+        # Prevent Super Admin from deleting their own account
         if idAdmin == request.user.id:
             return errorResponse(message="You cannot delete your own account.")
 

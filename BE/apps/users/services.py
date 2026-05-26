@@ -15,12 +15,12 @@ def getAdminListService():
     return formattedAdmins
 
 def createAdminService(username, password, fullName, isActive=True):
-    # Validasi username
+    # Validate username
     if User.objects.filter(username=username).exists():
         return {"success": False, "message": "Username already exists."}
     
     try:
-        # Buat User Admin (hanya role Admin sesuai permintaan)
+        # Create Admin User (only Admin role as requested)
         user = User.objects.create_user(
             username=username, 
             password=password,
@@ -30,7 +30,7 @@ def createAdminService(username, password, fullName, isActive=True):
         user.is_active = isActive
         user.save()
         
-        # Tambahkan ke grup Admin
+        # Add to Admin group
         group, _ = Group.objects.get_or_create(name='Admin')
         user.groups.add(group)
         
@@ -42,7 +42,7 @@ def deleteAdminService(userId):
     try:
         user = User.objects.get(id=userId)
         
-        # Pastikan yang dihapus adalah Admin, bukan Super Admin (Double Check)
+        # Ensure the deleted user is an Admin, not Super Admin (Double Check)
         if user.groups.filter(name='Super Admin').exists():
             return {"success": False, "message": "Cannot delete a Super Admin account."}
             
