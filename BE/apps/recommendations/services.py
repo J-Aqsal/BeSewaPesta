@@ -10,7 +10,10 @@ from apps.products.repo import (
 from apps.carts.repo import getCartItemsByCartId, getCartByGuestId
 from .repo import getProductUpsellRelations
 
-def getUpsellingRecommendations(productId, variantId=None, startDate=None, endDate=None, quantity=1):
+def getUpsellingRecommendations(productId, variantId=None, startDate=None, endDate=None, quantity=1, isFromRecommendation=False):
+    if isFromRecommendation:
+        return []
+
     try:
         quantity = int(quantity)
     except (ValueError, TypeError):
