@@ -1,9 +1,9 @@
-from apps.products.queries import (
+from apps.products.repo import (
     calculateAvailableStock, 
     calculateAvailableStockForCombinations,
     validateProductCombination
 )
-from .queries import (
+from .repo import (
     getCartByGuestId, 
     getCartItemsByCartId, 
     getVariantCombinationDetail, 

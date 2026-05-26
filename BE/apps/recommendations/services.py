@@ -1,4 +1,4 @@
-from apps.products.queries import (
+from apps.products.repo import (
     calculateAvailableStock, 
     calculateAvailableStockForCombinations,
     getAllProductFeatures,
@@ -7,8 +7,8 @@ from apps.products.queries import (
     getCombinationVariantDetails,
     getSimilarCombinationsWithHigherPrice
 )
-from apps.carts.queries import getCartItemsByCartId, getCartByGuestId
-from .queries import getProductUpsellRelations
+from apps.carts.repo import getCartItemsByCartId, getCartByGuestId
+from .repo import getProductUpsellRelations
 
 def getUpsellingRecommendations(productId, variantId=None, startDate=None, endDate=None, quantity=1):
     try:

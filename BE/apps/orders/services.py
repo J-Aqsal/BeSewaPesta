@@ -2,8 +2,8 @@ import math
 from datetime import datetime, timedelta
 from django.db import transaction
 from apps.carts.services import getCartDetailByGuestId
-from apps.carts.queries import clearCart
-from .queries import insertOrder, insertOrderItem, getOrders, getOrderByOrderId, getOrderItemsByOrderId, getCombinationNameByOrderId
+from apps.carts.repo import clearCart
+from .repo import insertOrder, insertOrderItem, getOrders, getOrderByOrderId, getOrderItemsByOrderId, getCombinationNameByOrderId
 def calculateDurationDays(startDate, endDate):
     if not startDate or not endDate:
         return 1
@@ -27,6 +27,18 @@ def calculateShippingCostService(subtotal, city):
         return 0
     
     city = city.lower().strip()
+
+    # City normalization mapping
+    if "jakarta" in city:
+        city = "jakarta"
+    elif "tangerang" in city:
+        city = "tangerang"
+    elif "bekasi" in city:
+        city = "bekasi"
+    elif "bogor" in city:
+        city = "bogor"
+    elif "depok" in city:
+        city = "depok"
     
     if subtotal < 500000:
         if city in ["jakarta", "bekasi"]:
