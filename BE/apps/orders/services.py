@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from django.db import transaction
 from apps.carts.services import getCartDetailByGuestId
 from apps.carts.repo import clearCart
-from .repo import insertOrder, insertOrderItem, getOrders, getOrderByOrderId, getOrderItemsByOrderId, getCombinationNameByOrderId
+from .repo import insertOrder, insertOrderItem, getOrders, getOrderByOrderId, getOrderItemsByOrderId, getCombinationNameByOrderId, updateOrderStatus
 def calculateDurationDays(startDate, endDate):
     if not startDate or not endDate:
         return 1
@@ -152,6 +152,22 @@ def processCheckout(guestId, recipientName, phoneNumber, shippingAddress, city):
     except Exception as e:
         return {"success": False, "message": str(e)}
 
+def updateOrderStatusService(orderId, newStatusId):
+    # Basic validation
+    order = getOrderByOrderId(orderId)
+    if not order:
+        return {"success": False, "message": "Order not found."}
+    
+    # Check if status ID exists in known list (1-5)
+    if newStatusId not in [1, 2, 3, 4, 5]:
+        return {"success": False, "message": "Invalid status ID."}
+        
+    try:
+        updateOrderStatus(orderId, newStatusId)
+        return {"success": True, "message": "Order status updated successfully."}
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+
 def getAllOrders():
     orders = getOrders()
     formattedOrders = []
@@ -163,8 +179,10 @@ def getAllOrders():
             "rentalEnd": order["rental_end"],
             "phoneNumber": order["phone_number"],
             "shippingAddress": order["shipping_address"],
+            "city": order["city"],
             "totalPrice": int(order["total_price"]),
-            "status": order["status_name"]
+            "status": order["status_name"],
+            "createdAt": order["created_at"].strftime('%Y-%m-%d %H:%M:%S') if order["created_at"] else None
         })
     return formattedOrders
 
@@ -181,20 +199,29 @@ def getOrderDetail(orderId):
 
     for combinationRow in combinationRows:
         orderItemId = combinationRow["order_item_id"]
+        val = combinationRow["combination_name"]
         if orderItemId not in combinationNamesByItemId:
             combinationNamesByItemId[orderItemId] = []
-        combinationNamesByItemId[orderItemId].append(combinationRow["combination_name"])
+        
+        if val is not None:
+            combinationNamesByItemId[orderItemId].append(val)
 
     formattedItems = []                 
     for item in orderItems:
         formattedItems.append({
             "idProduct": item["product_id"],
             "productName": item["product_name"],
-            "combinationName": combinationNamesByItemId.get(item["order_item_id"], []),
+            "combinationName": combinationNamesByItemId.get(item["order_item_id"]),
             "quantity": item["quantity"],
             "pricePerItem": int(item["price"]),
             "subtotal": int(item["price"] * item["quantity"]),
         })
+    
+    totalPrice = int(order["total_price"])
+    shippingCost = int(order["shipping_cost"])
+    totalRentalAmount = totalPrice - shippingCost
+    downPayment = totalRentalAmount // 2
+    remainingPayment = totalPrice - downPayment
 
     return {
         "idOrder": order["order_id"],
@@ -204,8 +231,11 @@ def getOrderDetail(orderId):
         "phoneNumber": order["phone_number"],
         "shippingAddress": order["shipping_address"],
         "city": order["city"],
-        "shippingCost": int(order["shipping_cost"]),
-        "totalPrice": int(order["total_price"]),
+        "shippingCost": shippingCost,
+        "totalPrice": totalPrice,
+        "downPayment": downPayment,
+        "remainingPayment": remainingPayment,
         "status": order["status_name"],
+        "createdAt": order["created_at"].strftime('%Y-%m-%d %H:%M:%S') if order["created_at"] else None,
         "items": formattedItems,
     }
