@@ -36,6 +36,7 @@ def getOrders():
             o.shipping_address,
             o.city,
             o.shipping_cost,
+            o.created_at,
             s.name AS status_name
         FROM orders o
         JOIN order_statuses s ON o.status_id = s.id
@@ -58,6 +59,7 @@ def getOrderByOrderId(orderId):
             o.shipping_address,
             o.city,
             o.shipping_cost,
+            o.created_at,
             s.name AS status_name
         FROM orders o
         JOIN order_statuses s ON o.status_id = s.id

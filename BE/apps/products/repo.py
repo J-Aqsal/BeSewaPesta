@@ -62,7 +62,7 @@ def calculateAvailableStock(productIds, startDate, endDate):
             return 0
         else:
             return {}
-
+        
     # VARIANT COMBINATIONS CHECK
     query =  """
         SELECT DISTINCT pvc.product_id
@@ -75,7 +75,6 @@ def calculateAvailableStock(productIds, startDate, endDate):
         row["product_id"] 
         for row in variantRows
     }
-
     # TOTAL STOCK
     query = """
         SELECT
@@ -90,6 +89,7 @@ def calculateAvailableStock(productIds, startDate, endDate):
         """
     
     totalStockRows = dbFetch(query, [productIds], fetchAll=True) or []
+    
     totalStockMap = {
         row["product_id"]: {
             "product_total_stock": int(row["product_total_stock"] or 0),
@@ -97,14 +97,12 @@ def calculateAvailableStock(productIds, startDate, endDate):
         }
         for row in totalStockRows
     }
-
+    
     # USED STOCK
     query = """
         SELECT
             oi.product_id,
-
             COALESCE(SUM(oi.quantity), 0) AS used_stock_all,
-
             COALESCE(
                 SUM(
                     CASE
@@ -114,30 +112,20 @@ def calculateAvailableStock(productIds, startDate, endDate):
                 ),
                 0
             ) AS used_stock_variant
-
         FROM order_items oi
-
-        JOIN orders o
-            ON o.id = oi.order_id
-
-        JOIN order_statuses os
-            ON os.id = o.status_id
-
+        JOIN orders o ON o.id = oi.order_id
+        JOIN order_statuses os ON os.id = o.status_id
         WHERE oi.product_id = ANY(%s)
         AND o.rental_start < %s
-        AND o.rental_end > %s
         AND (
-            os.code IN ('PENDING', 'DP', 'PAID')
-            OR (
-                os.code = 'COMPLETED'
-                AND o.rental_end >= NOW() - INTERVAL '24 HOURS'
-            )
+            (os.code IN ('PENDING', 'DP', 'PAID') AND o.rental_end > %s)
+            OR (os.code = 'COMPLETED' AND (o.rental_end + INTERVAL '24 HOURS') > %s)
         )
-
         GROUP BY oi.product_id
         """
     
-    usedStockRows = dbFetch(query, [productIds, endDate, startDate], fetchAll=True) or []
+    usedStockRows = dbFetch(query, [productIds, endDate, startDate, startDate], fetchAll=True) or []
+    
     usedStockMap = {
         row["product_id"]: {
             "used_stock_all": int(row["used_stock_all"] or 0),
@@ -183,7 +171,7 @@ def calculateAvailableStockForCombinations(productId, combinationIds, startDate,
     """
 
     totalStockRows = dbFetch(query, [productId, combinationIds], fetchAll=True)
-
+    
     totalStockMap = {
 
         row["id"]:
@@ -193,58 +181,27 @@ def calculateAvailableStockForCombinations(productId, combinationIds, startDate,
     }
 
     # USED STOCK
-
     query = """
     SELECT
         oi.product_variant_combination_id,
-
-        COALESCE(
-            SUM(oi.quantity),
-            0
-        ) AS used_stock
-
+        COALESCE(SUM(oi.quantity), 0) AS used_stock
     FROM order_items oi
-
-    JOIN orders o
-        ON o.id = oi.order_id
-
-    JOIN order_statuses os
-        ON os.id = o.status_id
-
+    JOIN orders o ON o.id = oi.order_id
+    JOIN order_statuses os ON os.id = o.status_id
     WHERE oi.product_id = %s
-
-    AND oi.product_variant_combination_id
-        = ANY(%s)
-
+    AND oi.product_variant_combination_id = ANY(%s)
     AND o.rental_start < %s
-
-    AND o.rental_end > %s
-
     AND (
-
-        os.code IN (
-            'PENDING',
-            'DP',
-            'PAID'
-        )
-
-        OR (
-
-            os.code = 'COMPLETED'
-
-            AND o.rental_end >= NOW() - INTERVAL '24 HOURS'
-        )
+        (os.code IN ('PENDING', 'DP', 'PAID') AND o.rental_end > %s)
+        OR (os.code = 'COMPLETED' AND (o.rental_end + INTERVAL '24 HOURS') > %s)
     )
-
-    GROUP BY
-        oi.product_variant_combination_id
+    GROUP BY oi.product_variant_combination_id
     """
 
-    usedStockRows = dbFetch(query,[productId, combinationIds, endDate, startDate], fetchAll=True)
+    usedStockRows = dbFetch(query, [productId, combinationIds, endDate, startDate, startDate], fetchAll=True) or []
 
     usedStockMap = {
         row["product_variant_combination_id"]: int(row["used_stock"] or 0)
-
         for row in usedStockRows
     }
 

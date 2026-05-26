@@ -1,7 +1,14 @@
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from apps.carts.services import getCartDetailByGuestId
-from .services import calculateShippingCostService, processCheckout, getRentalSummaryService, getAllOrders, getOrderDetail
+from .services import (
+    calculateShippingCostService, 
+    processCheckout, 
+    getRentalSummaryService, 
+    getAllOrders, 
+    getOrderDetail,
+    updateOrderStatusService
+)
 from utils.responses import successResponse, errorResponse
 
 class ShippingCostAPIView(APIView):
@@ -70,3 +77,20 @@ class OrderDetailAPIView(APIView):
             return errorResponse(message="orderId is required")
         orderItems = getOrderDetail(orderId)
         return successResponse(data=orderItems)
+
+class OrderStatusUpdateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        orderId = request.data.get("orderId")
+        statusId = request.data.get("statusId")
+
+        if not orderId or not statusId:
+            return errorResponse(message="orderId and statusId are required")
+        
+        result = updateOrderStatusService(orderId, statusId)
+        
+        if not result["success"]:
+            return errorResponse(message=result["message"])
+            
+        return successResponse(message=result["message"])
