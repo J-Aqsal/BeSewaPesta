@@ -1,6 +1,7 @@
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from apps.carts.services import getCartDetailByGuestId
-from .services import calculateShippingCostService, processCheckout, getRentalSummaryService
+from .services import calculateShippingCostService, processCheckout, getRentalSummaryService, getAllOrders, getOrderDetail
 from utils.responses import successResponse, errorResponse
 
 class ShippingCostAPIView(APIView):
@@ -52,3 +53,20 @@ class RentalSummaryAPIView(APIView):
             return errorResponse(message="Cart is empty or not found")
 
         return successResponse(data=summary)
+
+class OrderListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        orders = getAllOrders()
+        return successResponse(data=orders)
+    
+class OrderDetailAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        orderId = request.data.get("orderId")
+        if not orderId:
+            return errorResponse(message="orderId is required")
+        orderItems = getOrderDetail(orderId)
+        return successResponse(data=orderItems)

@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 import os
 
+from datetime import timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
@@ -24,6 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-#vnak@+sf$sar+j!2ee9$9q-%#pue2y@9o2p!4rge66$@373er'
+# harusnya di .env
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -40,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework_simplejwt',
     'corsheaders',
     'apps.cart',
     'apps.dbmirror',
@@ -48,6 +51,7 @@ INSTALLED_APPS = [
     'apps.carts',
     'apps.tmp_models',
     'apps.recommendations',
+    'apps.authentication',
 ]
 
 MIDDLEWARE = [
@@ -132,3 +136,18 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ]
+}
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    "ALGORITHM": "HS256",
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "CHECK_USER_IS_ACTIVE": True,
+    # kemungkinan tambah rotate dan blacklist nanti
+}
