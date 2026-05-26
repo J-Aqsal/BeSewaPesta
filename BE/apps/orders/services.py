@@ -4,6 +4,7 @@ from django.db import transaction
 from apps.carts.services import getCartDetailByGuestId
 from apps.carts.repo import clearCart
 from .repo import insertOrder, insertOrderItem, getOrders, getOrderByOrderId, getOrderItemsByOrderId, getCombinationNameByOrderId
+
 def calculateDurationDays(startDate, endDate):
     if not startDate or not endDate:
         return 1
