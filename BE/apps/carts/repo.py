@@ -92,7 +92,6 @@ def getVariantCombinationDetail(combinationId):
 
     query = """
         SELECT
-            vt.name,
             vo.value
 
         FROM product_variant_combination_options pvco
@@ -110,16 +109,7 @@ def getVariantCombinationDetail(combinationId):
 
     results = dbFetch(query, [combinationId], fetchAll=True)
 
-    variants = []
-
-    for row in results:
-
-        variants.append({
-            "variantName": row['name'],
-            "valueOption": row['value']
-        })
-
-    return variants
+    return [row['value'] for row in results]
 
 
 def createCart(guestId, rentalStart, rentalEnd):
