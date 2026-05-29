@@ -208,10 +208,19 @@ def getOrderDetail(orderId):
 
     formattedItems = []                 
     for item in orderItems:
+        combinationId = item.get("product_variant_combination_id")
+        variantCombination = None
+        
+        if combinationId:
+            variantCombination = {
+                "idVariantCombination": combinationId,
+                "variants": combinationNamesByItemId.get(item["order_item_id"], [])
+            }
+
         formattedItems.append({
             "idProduct": item["product_id"],
             "productName": item["product_name"],
-            "combinationName": combinationNamesByItemId.get(item["order_item_id"]),
+            "variantCombination": variantCombination,
             "quantity": item["quantity"],
             "pricePerItem": int(item["price"]),
             "subtotal": int(item["price"] * item["quantity"]),

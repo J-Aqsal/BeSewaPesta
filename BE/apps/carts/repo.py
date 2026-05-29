@@ -39,15 +39,15 @@ def getCartItemsByCartId(cartId):
             ci.quantity,
             ci.product_variant_combination_id,
 
-            p.name,
+            p.name AS product_name,
             p.photo,
-            p.price,
+            p.price AS product_price,
             p.price_unit,
             p.total_stock,
 
-            c.name,
+            c.name AS category_name,
 
-            pvc.price
+            pvc.price AS combination_price
 
         FROM cart_items ci
 
@@ -76,13 +76,13 @@ def getCartItemsByCartId(cartId):
             "product_id": row['product_id'],
             "quantity": row['quantity'],
             "product_variant_combination_id": row['product_variant_combination_id'],
-            "product_name": row['name'],
+            "product_name": row['product_name'],
             "thumbnail": row['photo'],
-            "product_price": row['price'],
+            "product_price": row['product_price'],
             "price_unit": row['price_unit'],
             "total_stock": row['total_stock'],
-            "category_name": row['name'],
-            "combination_price": row['price']
+            "category_name": row['category_name'],
+            "combination_price": row['combination_price']
         })
 
     return items
@@ -92,7 +92,6 @@ def getVariantCombinationDetail(combinationId):
 
     query = """
         SELECT
-            vt.name,
             vo.value
 
         FROM product_variant_combination_options pvco
@@ -110,16 +109,7 @@ def getVariantCombinationDetail(combinationId):
 
     results = dbFetch(query, [combinationId], fetchAll=True)
 
-    variants = []
-
-    for row in results:
-
-        variants.append({
-            "variantName": row['name'],
-            "valueOption": row['value']
-        })
-
-    return variants
+    return [row['value'] for row in results]
 
 
 def createCart(guestId, rentalStart, rentalEnd):
