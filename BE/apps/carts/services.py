@@ -116,3 +116,17 @@ def removeItemFromCart(cartItemId, guestId):
     
     deleteCartItem(cartItemId)
     return {"success": True, "message": "Item removed from cart."}
+
+
+def updateItemQuantityService(guestId, cartItemId, quantity):
+    isValid = validateCartItemOwnership(cartItemId, guestId)
+    
+    if not isValid:
+        return {"success": False, "message": "Item not found or does not belong to your cart."}
+    
+    if int(quantity) <= 0:
+        deleteCartItem(cartItemId)
+        return {"success": True, "message": "Item removed from cart due to zero quantity."}
+        
+    updateCartItemQuantity(cartItemId, quantity)
+    return {"success": True, "message": "Item quantity updated."}
