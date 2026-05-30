@@ -48,15 +48,15 @@ class Categories(models.Model):
         db_table = 'categories'
 
 
-class Contexts(models.Model):
-    slug = models.CharField(unique=True, max_length=100)
+class Tags(models.Model):
+    name = models.CharField(unique=True, max_length=100)
     label = models.CharField(max_length=150)
     group_name = models.CharField(max_length=50)
     created_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         managed = False
-        db_table = 'contexts'
+        db_table = 'tags'
 
 
 class OrderItemVariants(models.Model):
@@ -101,15 +101,15 @@ class Orders(models.Model):
         db_table = 'orders'
 
 
-class ProductContexts(models.Model):
-    pk = models.CompositePrimaryKey('product_id', 'context_id')
+class ProductTags(models.Model):
+    pk = models.CompositePrimaryKey('product_id', 'tag_id')
     product = models.ForeignKey('Products', models.DO_NOTHING)
-    context = models.ForeignKey(Contexts, models.DO_NOTHING)
+    tag = models.ForeignKey(Tags, models.DO_NOTHING)
     weight = models.FloatField()
 
     class Meta:
         managed = False
-        db_table = 'product_contexts'
+        db_table = 'product_tags'
 
 
 class ProductSpecifications(models.Model):
