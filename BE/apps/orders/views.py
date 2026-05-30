@@ -10,26 +10,36 @@ from .services import (
     updateOrderStatusService
 )
 from utils.responses import successResponse, errorResponse
+from utils.constants import BAD_REQUEST_CODE
 
-class ShippingCostAPIView(APIView):
-    def post(self, request):
-        guestId = request.data.get("guestId")
-        city = request.data.get("city")
+class OrderAPIView(APIView):
+    """
+    Consolidated Order API
+    GET: List all orders or Get detail (if orderId provided)
+    POST: Checkout (create order)
+    PATCH: Update order status
+    """
+    
+    def get_permissions(self):
+        # Checkout (POST) can be accessed by guests, other methods require authentication
+        if self.request.method == 'POST':
+            return []
+        return [IsAuthenticated()]
 
-        if not guestId or not city:
-            return errorResponse(message="guestId and city are required")
-
-        cartData = getCartDetailByGuestId(guestId)
-        if not cartData:
-            return errorResponse(message="Cart not found")
-
-        shippingCost = calculateShippingCostService(cartData['totalPrice'], city)
+    def get(self, request):
+        orderId = request.query_params.get("orderId")
         
-        return successResponse(data={"shippingCost": shippingCost})
+        if orderId:
+            # Action: Get Detail
+            orderData = getOrderDetail(orderId)
+            return successResponse(data=orderData)
+        
+        # Action: List Orders
+        orders = getAllOrders()
+        return successResponse(data=orders)
 
-
-class CheckoutAPIView(APIView):
     def post(self, request):
+        # Action: Checkout
         guestId = request.data.get("guestId")
         recipientName = request.data.get("recipientName")
         phoneNumber = request.data.get("phoneNumber")
@@ -46,42 +56,8 @@ class CheckoutAPIView(APIView):
 
         return successResponse(message=result["message"], data=result["data"])
 
-
-class RentalSummaryAPIView(APIView):
-    def post(self, request):
-        guestId = request.data.get("guestId")
-
-        if not guestId:
-            return errorResponse(message="guestId is required")
-
-        summary = getRentalSummaryService(guestId)
-
-        if not summary:
-            return errorResponse(message="Cart is empty or not found")
-
-        return successResponse(data=summary)
-
-class OrderListAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        orders = getAllOrders()
-        return successResponse(data=orders)
-    
-class OrderDetailAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        orderId = request.data.get("orderId")
-        if not orderId:
-            return errorResponse(message="orderId is required")
-        orderItems = getOrderDetail(orderId)
-        return successResponse(data=orderItems)
-
-class OrderStatusUpdateAPIView(APIView):
-    permission_classes = [IsAuthenticated]
-
     def patch(self, request):
+        # Action: Update Status
         orderId = request.data.get("orderId")
         statusId = request.data.get("statusId")
 
@@ -94,3 +70,37 @@ class OrderStatusUpdateAPIView(APIView):
             return errorResponse(message=result["message"])
             
         return successResponse(message=result["message"])
+
+
+class OrderUtilityAPIView(APIView):
+    """
+    Utility endpoints for calculations before order creation
+    GET: Handles 'shipping' and 'summary' types
+    """
+    
+    def get(self, request):
+        calcType = request.query_params.get("type")
+        guestId = request.query_params.get("guestId")
+
+        if not calcType or not guestId:
+            return errorResponse(message="type and guestId are required", code=BAD_REQUEST_CODE)
+
+        if calcType == "shipping":
+            city = request.query_params.get("city")
+            if not city:
+                return errorResponse(message="city is required for shipping calculation")
+            
+            cartData = getCartDetailByGuestId(guestId)
+            if not cartData:
+                return errorResponse(message="Cart not found")
+                
+            shippingCost = calculateShippingCostService(cartData['totalPrice'], city)
+            return successResponse(data={"shippingCost": shippingCost})
+
+        elif calcType == "summary":
+            summary = getRentalSummaryService(guestId)
+            if not summary:
+                return errorResponse(message="Cart is empty or not found")
+            return successResponse(data=summary)
+
+        return errorResponse(message="Invalid utility type. Use 'shipping' or 'summary'.")
