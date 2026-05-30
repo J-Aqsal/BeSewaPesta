@@ -149,9 +149,9 @@ def getCrossSellRecommendations(guestId):
     cartFeatures = {}
     rawCartFeatures = getAllProductFeatures(cartProductIds)
     for row in rawCartFeatures:
-        slug = row['slug']
+        name = row['name']
         weight = float(row['weight'])
-        cartFeatures[slug] = max(cartFeatures.get(slug, 0), weight)
+        cartFeatures[name] = max(cartFeatures.get(name, 0), weight)
 
     candidates = getProductCategoryCandidates(cartCategoryIds)
     candidateIds = [c['id'] for c in candidates]
@@ -165,7 +165,7 @@ def getCrossSellRecommendations(guestId):
         p_id = row['product_id']
         if p_id not in candidateFeaturesMap:
             candidateFeaturesMap[p_id] = {}
-        candidateFeaturesMap[p_id][row['slug']] = float(row['weight'])
+        candidateFeaturesMap[p_id][row['name']] = float(row['weight'])
 
     scoredCandidates = []
     for candidate in candidates:
