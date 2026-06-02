@@ -111,3 +111,8 @@ def updateOrderStatus(orderId, newStatusId):
         WHERE id = %s
     """
     dbExecute(query, [newStatusId, orderId])
+
+
+def getOrderStatusesRepo():
+    query = "SELECT id, name FROM order_statuses ORDER BY id ASC"
+    return dbFetch(query, fetchAll=True)
