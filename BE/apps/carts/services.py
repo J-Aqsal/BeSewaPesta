@@ -121,8 +121,8 @@ def addItemToCart(guestId, productId, combinationId, quantity, startDate, endDat
 
         updateCartRentalDates(cartId, startDate, endDate)
     else:
-        newCartId = createCart(guestId, startDate, endDate)
-        cartId = newCartId
+        result = createCart(guestId, startDate, endDate)
+        cartId = result['id']
 
 
     if combinationId:
