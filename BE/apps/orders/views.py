@@ -1,5 +1,6 @@
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
+from apps.authentication.permissions import IsAdminOrSuperAdmin
 from apps.carts.services import getCartDetailByGuestId
 from .services import (
     calculateShippingCostService, 
@@ -21,10 +22,10 @@ class OrderAPIView(APIView):
     """
     
     def get_permissions(self):
-        # Checkout (POST) can be accessed by guests, other methods require authentication
+        # Checkout (POST) can be accessed by guests, other methods require Admin/Super Admin
         if self.request.method == 'POST':
             return []
-        return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminOrSuperAdmin()]
 
     def get(self, request):
         orderId = request.query_params.get("orderId")
