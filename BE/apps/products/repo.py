@@ -18,7 +18,7 @@ def getProducts():
     return result or []
 
 
-def getProductById(product_id):
+def getProductById(productId):
     query ="""
         SELECT
             id,
@@ -31,25 +31,25 @@ def getProductById(product_id):
         FROM products
         WHERE id = %s
     """
-    result = dbFetch(query, [product_id])
+    result = dbFetch(query, [productId])
 
     if not result:
         return None
 
     return result
 
-def calculatePriceRange(product_price, prices_list):
-    if prices_list:
-        min_price = min(prices_list)
-        max_price = max(prices_list)
+def calculatePriceRange(productPrice, pricesList):
+    if pricesList:
+        minPrice = min(pricesList)
+        maxPrice = max(pricesList)
         return {
-            "min": min_price,
-            "max": max_price,
+            "min": minPrice,
+            "max": maxPrice,
         }
     
     return {
-        "min": product_price,
-        "max": product_price,
+        "min": productPrice,
+        "max": productPrice,
     }
 
 
@@ -92,8 +92,8 @@ def calculateAvailableStock(productIds, startDate, endDate):
     
     totalStockMap = {
         row["product_id"]: {
-            "product_total_stock": int(row["product_total_stock"] or 0),
-            "variant_total_stock": int(row["variant_total_stock"] or 0),
+            "productTotalStock": int(row["product_total_stock"] or 0),
+            "variantTotalStock": int(row["variant_total_stock"] or 0),
         }
         for row in totalStockRows
     }
@@ -128,22 +128,22 @@ def calculateAvailableStock(productIds, startDate, endDate):
     
     usedStockMap = {
         row["product_id"]: {
-            "used_stock_all": int(row["used_stock_all"] or 0),
-            "used_stock_variant": int(row["used_stock_variant"] or 0),
+            "usedStockAll": int(row["used_stock_all"] or 0),
+            "usedStockVariant": int(row["used_stock_variant"] or 0),
         }
         for row in usedStockRows
     }
 
     result = {}
     for productId in productIds:
-        stock = totalStockMap.get(productId, {"product_total_stock": 0, "variant_total_stock": 0})
-        used = usedStockMap.get(productId, {"used_stock_all": 0, "used_stock_variant": 0})
+        stock = totalStockMap.get(productId, {"productTotalStock": 0, "variantTotalStock": 0})
+        used = usedStockMap.get(productId, {"usedStockAll": 0, "usedStockVariant": 0})
         hasVariant = productId in productsWithVariant
 
         if hasVariant:
-            available = stock["variant_total_stock"] - used["used_stock_variant"]
+            available = stock["variantTotalStock"] - used["usedStockVariant"]
         else:
-            available = stock["product_total_stock"] - used["used_stock_all"]
+            available = stock["productTotalStock"] - used["usedStockAll"]
 
         result[productId] = available
 
@@ -218,7 +218,7 @@ def calculateAvailableStockForCombinations(productId, combinationIds, startDate,
 
 
 
-def getProductGalleries(product_id):
+def getProductGalleries(productId):
     query = """
         SELECT
             image_url
@@ -228,12 +228,12 @@ def getProductGalleries(product_id):
         ORDER BY display_order, id
         """
     
-    rows = dbFetch(query, [product_id], fetchAll=True)
+    rows = dbFetch(query, [productId], fetchAll=True)
 
     return [row["image_url"] for row in rows]
 
 
-def getVariantTypes(product_id):
+def getVariantTypes(productId):
     query = """
         SELECT
             id,
@@ -244,12 +244,12 @@ def getVariantTypes(product_id):
         ORDER BY id
         """
     
-    variant_types = dbFetch(query, [product_id], fetchAll=True) or []
+    variantTypes = dbFetch(query, [productId], fetchAll=True) or []
 
-    if not variant_types:
+    if not variantTypes:
         return []
 
-    variant_type_ids = [row["id"] for row in variant_types]
+    variantTypeIds = [row["id"] for row in variantTypes]
     query = """
         SELECT
             id,
@@ -259,11 +259,11 @@ def getVariantTypes(product_id):
         WHERE variant_type_id = ANY(%s)
         ORDER BY id
         """
-    variant_options = dbFetch(query, [variant_type_ids], fetchAll=True) or []
+    variantOptions = dbFetch(query, [variantTypeIds], fetchAll=True) or []
 
-    options_map = {}
-    for row in variant_options:
-        options_map.setdefault(row["variant_type_id"], []).append(
+    optionsMap = {}
+    for row in variantOptions:
+        optionsMap.setdefault(row["variant_type_id"], []).append(
             {
                 "idOption": row["id"],
                 "valueOption": row["value"],
@@ -275,19 +275,19 @@ def getVariantTypes(product_id):
             "idVariant": row["id"],
             "variantName": row["name"],
             "isRequired": bool(row["is_required"]),
-            "options": options_map.get(row["id"], []),
+            "options": optionsMap.get(row["id"], []),
         }
-        for row in variant_types
+        for row in variantTypes
     ]
 
 
-def getVariantCombinations(product_id, start_date, end_date):
+def getVariantCombinations(productId, startDate, endDate):
     # Cek kalau request untuk catalog (bulk) atau detail (single)
-    isBulkRequest = isinstance(product_id, (list, tuple, set))
+    isBulkRequest = isinstance(productId, (list, tuple, set))
 
     if isBulkRequest:
-        product_ids = list(product_id)
-        if not product_ids:
+        productIds = list(productId)
+        if not productIds:
             return {}
 
         rows = dbFetch(
@@ -301,19 +301,19 @@ def getVariantCombinations(product_id, start_date, end_date):
             WHERE pvc.product_id = ANY(%s)
             ORDER BY pvc.product_id, pvc.id
             """,
-            [product_ids],
+            [productIds],
             fetchAll=True,
         ) or []
 
-        price_values_map = {}
+        priceValuesMap = {}
         for row in rows:
             price = row["price"]
             if price is None:
                 continue
 
-            price_values_map.setdefault(row["product_id"], []).append(price)
+            priceValuesMap.setdefault(row["product_id"], []).append(price)
 
-        return price_values_map
+        return priceValuesMap
 
     query = """
         SELECT
@@ -340,18 +340,18 @@ def getVariantCombinations(product_id, start_date, end_date):
         ORDER BY pvc.id
         """
     
-    combinations = dbFetch(query, [product_id], fetchAll=True) or []
+    combinations = dbFetch(query, [productId], fetchAll=True) or []
 
     if not combinations:
         return [], []
 
-    combination_ids = [row["combination_id"] for row in combinations]
+    combinationIds = [row["combination_id"] for row in combinations]
 
-    price_values = []
+    priceValues = []
     for row in combinations:
-        normalized_price = row["price"]
-        if normalized_price is not None:
-            price_values.append(normalized_price)
+        normalizedPrice = row["price"]
+        if normalizedPrice is not None:
+            priceValues.append(normalizedPrice)
 
     query = """
         SELECT
@@ -362,37 +362,37 @@ def getVariantCombinations(product_id, start_date, end_date):
         ORDER BY display_order, id
         """
     
-    gallery_rows = dbFetch(query, [combination_ids], fetchAll=True) or []
+    galleryRows = dbFetch(query, [combinationIds], fetchAll=True) or []
 
-    gallery_map = {}
-    for row in gallery_rows:
-        gallery_map.setdefault(row["product_variant_combination_id"], []).append(
+    galleryMap = {}
+    for row in galleryRows:
+        galleryMap.setdefault(row["product_variant_combination_id"], []).append(
             row["image_url"]
         )
 
-    stock_map = calculateAvailableStockForCombinations(
-        product_id,
-        combination_ids,
-        start_date,
-        end_date,
+    stockMap = calculateAvailableStockForCombinations(
+        productId,
+        combinationIds,
+        startDate,
+        endDate,
     )
 
-    combinations_data = [
+    combinationsData = [
         {
             "idVariantCombination": row["combination_id"],
-            "stock": stock_map.get(row["combination_id"], int(row["stock"] or 0)),
+            "stock": stockMap.get(row["combination_id"], int(row["stock"] or 0)),
             "options": row["variant_option_ids"] or [],
             "variants": row["variants"] or [],
             "price": row["price"],
-            "gallery": gallery_map.get(row["combination_id"], []),
+            "gallery": galleryMap.get(row["combination_id"], []),
         }
         for row in combinations
     ]
 
-    return combinations_data, price_values
+    return combinationsData, priceValues
 
 
-def getProductSpecifications(product_id):
+def getProductSpecifications(productId):
     query = """
         SELECT
             specification
@@ -401,7 +401,7 @@ def getProductSpecifications(product_id):
         ORDER BY id
         """
     
-    rows = dbFetch(query, [product_id], fetchAll=True) or []
+    rows = dbFetch(query, [productId], fetchAll=True) or []
 
     return [row["specification"] for row in rows]
 
@@ -487,15 +487,15 @@ def getSimilarCombinationsWithHigherPrice(productId, currentPrice, upsellDimensi
     """
 
     params = [productId, currentPrice, currentUpsellOptionId, upsellDimensionTypeId]
-    for option_id in fixedOptionIds:
+    for optionId in fixedOptionIds:
         query += f"""
         AND EXISTS (
-            SELECT 1 FROM product_variant_combination_options pvco_{option_id}
-            WHERE pvco_{option_id}.product_variant_combination_id = pvc.id
-            AND pvco_{option_id}.variant_option_id = %s
+            SELECT 1 FROM product_variant_combination_options pvco_{optionId}
+            WHERE pvco_{optionId}.product_variant_combination_id = pvc.id
+            AND pvco_{optionId}.variant_option_id = %s
         )
         """
-        params.append(option_id)
+        params.append(optionId)
 
     return dbFetch(query, params, fetchAll=True)
 

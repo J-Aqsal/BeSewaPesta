@@ -178,7 +178,38 @@ def deleteCartItem(cartItemId):
 
 
 def clearCart(cartId):
-    query_items = "DELETE FROM cart_items WHERE cart_id = %s"
-    query_cart = "DELETE FROM carts WHERE id = %s"
-    dbExecute(query_items, [cartId])
-    dbExecute(query_cart, [cartId])
+    queryItems = "DELETE FROM cart_items WHERE cart_id = %s"
+    queryCart = "DELETE FROM carts WHERE id = %s"
+    dbExecute(queryItems, [cartId])
+    dbExecute(queryCart, [cartId])
+
+
+def updateCartActivity(cartId):
+    query = "UPDATE carts SET updated_at = NOW() WHERE id = %s"
+    dbExecute(query, [cartId])
+
+
+def getExistingCategoriesRepo(cartId):
+    query = """
+        SELECT DISTINCT c.name
+        FROM cart_items ci
+        JOIN products p ON p.id = ci.product_id
+        JOIN categories c ON c.id = p.category_id
+        WHERE ci.cart_id = %s
+    """
+    results = dbFetch(query, [cartId], fetchAll=True) or []
+    return [row['name'] for row in results]
+
+
+def expireCartsRepo(hoursThreshold=24):
+    queryFind = "SELECT id FROM carts WHERE updated_at < NOW() - INTERVAL '%s HOURS'"
+    inactiveCarts = dbFetch(queryFind, [hoursThreshold], fetchAll=True) or []
+    
+    if not inactiveCarts:
+        return 0
+        
+    cartIds = [c['id'] for c in inactiveCarts]
+    dbExecute("DELETE FROM cart_items WHERE cart_id = ANY(%s)", [cartIds])
+    dbExecute("DELETE FROM carts WHERE id = ANY(%s)", [cartIds])
+    
+    return len(cartIds)
