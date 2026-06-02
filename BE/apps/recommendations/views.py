@@ -6,14 +6,16 @@ from utils.constants import BAD_REQUEST_CODE
 
 class UpSellAPIView(APIView):
 
-    def post(self, request):
-
-        productId = request.data.get("idProduct")
-        variantId = request.data.get("idVariantCombination")
-        startDate = request.data.get("startDate")
-        endDate = request.data.get("endDate")
-        quantity = request.data.get("quantity", 1)
-        isFromRecommendation = request.data.get("isFromRecommendation", False)
+    def get(self, request):
+        """
+        Get up-selling recommendations for a product
+        """
+        productId = request.query_params.get("idProduct")
+        variantId = request.query_params.get("idVariantCombination")
+        startDate = request.query_params.get("startDate")
+        endDate = request.query_params.get("endDate")
+        quantity = request.query_params.get("quantity", 1)
+        isFromRecommendation = request.query_params.get("isFromRecommendation", "false").lower() == "true"
 
         if not productId:
             return errorResponse(
@@ -21,8 +23,6 @@ class UpSellAPIView(APIView):
                 code=BAD_REQUEST_CODE
             )
 
-        # variantId can be None if the source product has no variants selected
-        
         recommendations = getUpsellingRecommendations(
             productId, 
             variantId, 
@@ -37,8 +37,11 @@ class UpSellAPIView(APIView):
 
 class CrossSellAPIView(APIView):
 
-    def post(self, request):
-        guestId = request.data.get("guestId")
+    def get(self, request):
+        """
+        Get cross-selling recommendations based on cart content
+        """
+        guestId = request.query_params.get("guestId")
 
         if not guestId:
             return errorResponse(
