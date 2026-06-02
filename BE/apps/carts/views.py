@@ -1,7 +1,6 @@
 from rest_framework.views import APIView
 from .services import (
     getCartDetailByGuestId, 
-    upsertCart, 
     addItemToCart, 
     removeItemFromCart,
     updateItemQuantityService
@@ -14,9 +13,8 @@ class CartAPIView(APIView):
     """
     Consolidated Cart API View
     GET: Get cart details
-    POST: Add item to cart
-    PATCH: Upsert cart (rental dates)
-    PUT: Update item quantity
+    POST: Add item to cart (Combined Create/Update Cart & Add Item)
+    PATCH: Update item quantity
     DELETE: Remove item from cart
     """
 
@@ -40,23 +38,26 @@ class CartAPIView(APIView):
 
         return successResponse(data=cartData)
 
-    def patch(self, request):
-        """Upsert cart (set/update rental dates)"""
+    def post(self, request):
+        """Add item to cart (Combined with Cart creation/update)"""
         guestId = request.data.get("guestId")
+        productId = request.data.get("idProduct")
+        combinationId = request.data.get("idVariantCombination")
+        quantity = request.data.get("quantity", 1)
         startDate = request.data.get("startDate")
         endDate = request.data.get("endDate")
 
-        if not guestId:
-            return errorResponse(message="guestId is required")
+        if not all([guestId, productId, startDate, endDate]):
+            return errorResponse(message="guestId, idProduct, startDate, and endDate are required")
 
-        if not startDate or not endDate:
-            return errorResponse(message="startDate and endDate are required")
+        result = addItemToCart(guestId, productId, combinationId, quantity, startDate, endDate)
 
-        result = upsertCart(guestId, startDate, endDate)
+        if not result["success"]:
+            return errorResponse(message=result["message"])
 
-        return successResponse(data=result)
+        return successResponse(message=result["message"], data={"cartId": result["cartId"]})
 
-    def put(self, request):
+    def patch(self, request):
         """Update specific cart item quantity"""
         guestId = request.data.get("guestId")
         cartItemId = request.data.get("idCartItem")
@@ -71,23 +72,6 @@ class CartAPIView(APIView):
             return errorResponse(message=result["message"])
 
         return successResponse(message=result["message"])
-
-    def post(self, request):
-        """Add item to cart"""
-        guestId = request.data.get("guestId")
-        productId = request.data.get("idProduct")
-        combinationId = request.data.get("idVariantCombination")
-        quantity = request.data.get("quantity", 1)
-
-        if not guestId or not productId:
-            return errorResponse(message="guestId and idProduct are required")
-
-        result = addItemToCart(guestId, productId, combinationId, quantity)
-
-        if not result["success"]:
-            return errorResponse(message=result["message"])
-
-        return successResponse(message=result["message"], data={"cartId": result["cartId"]})
 
     def delete(self, request):
         """Remove item from cart"""
