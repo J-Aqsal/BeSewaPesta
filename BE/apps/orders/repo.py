@@ -1,118 +1,92 @@
-from utils.db import dbExecute, dbFetch
+from .models import Order, OrderItem, OrderStatus
+from django.db.models import F
+
 
 def insertOrder(guestId, totalPrice, statusId, rentalStart, rentalEnd, recipientName, phoneNumber, shippingAddress, city, shippingCost):
-    query = """
-        INSERT INTO orders (
-            guest_id, total_price, status_id, rental_start, rental_end, 
-            recipient_name, phone_number, shipping_address, city, shipping_cost, 
-            created_at
-        )
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())
-        RETURNING id
-    """
-    return dbExecute(query, [
-        guestId, totalPrice, statusId, rentalStart, rentalEnd, 
-        recipientName, phoneNumber, shippingAddress, city, shippingCost
-    ], returning=True)
+    order = Order.objects.create(
+        guest_id=guestId,
+        total_price=totalPrice,
+        status_id=statusId,
+        rental_start=rentalStart,
+        rental_end=rentalEnd,
+        recipient_name=recipientName,
+        phone_number=phoneNumber,
+        shipping_address=shippingAddress,
+        city=city,
+        shipping_cost=shippingCost
+    )
+    return {"id": order.id}
 
 
 def insertOrderItem(orderId, productId, quantity, price, combinationId=None):
-    query = """
-        INSERT INTO order_items (order_id, product_id, quantity, price, product_variant_combination_id)
-        VALUES (%s, %s, %s, %s, %s)
-    """
-    dbExecute(query, [orderId, productId, quantity, price, combinationId])
+    OrderItem.objects.create(
+        order_id=orderId,
+        product_id=productId,
+        quantity=quantity,
+        price=price,
+        product_variant_combination_id=combinationId
+    )
+
 
 def getOrders():
-    query = """
-        SELECT 
-            o.id AS order_id,
-            o.guest_id,
-            o.total_price,
-            o.rental_start,
-            o.rental_end,
-            o.recipient_name,
-            o.phone_number,
-            o.shipping_address,
-            o.city,
-            o.shipping_cost,
-            o.created_at,
-            s.name AS status_name
-        FROM orders o
-        JOIN order_statuses s ON o.status_id = s.id
-        ORDER BY o.created_at DESC
-    """
-    orders = dbFetch(query, [], fetchAll=True) or []
+    orders = Order.objects.select_related('status').annotate(
+        order_id=F('id'),
+        status_name=F('status__name')
+    ).values(
+        'order_id', 'guest_id', 'total_price', 'rental_start', 'rental_end',
+        'recipient_name', 'phone_number', 'shipping_address', 'city',
+        'shipping_cost', 'created_at', 'status_name'
+    ).order_by('-created_at')
+    
+    return list(orders)
 
-    return orders
 
 def getOrderByOrderId(orderId):
-    query = """
-        SELECT 
-            o.id AS order_id,
-            o.guest_id,
-            o.total_price,
-            o.rental_start,
-            o.rental_end,
-            o.recipient_name,
-            o.phone_number,
-            o.shipping_address,
-            o.city,
-            o.shipping_cost,
-            o.created_at,
-            s.name AS status_name
-        FROM orders o
-        JOIN order_statuses s ON o.status_id = s.id
-        WHERE o.id = %s
-    """
-    orders = dbFetch(query, [orderId], fetchAll=True) or []
+    order = Order.objects.select_related('status').filter(id=orderId).annotate(
+        order_id=F('id'),
+        status_name=F('status__name')
+    ).values(
+        'order_id', 'guest_id', 'total_price', 'rental_start', 'rental_end',
+        'recipient_name', 'phone_number', 'shipping_address', 'city',
+        'shipping_cost', 'created_at', 'status_name'
+    )
+    
+    return list(order)
 
-    return orders
 
 def getOrderItemsByOrderId(orderId):
-    query = """
-        SELECT 
-            oi.id AS order_item_id,
-            oi.product_id,
-            p.name AS product_name,
-            oi.quantity,
-            oi.price,
-            oi.product_variant_combination_id,
-            c.name AS category_name,
-            p.photo AS thumbnail
-        FROM order_items oi
-        JOIN products p ON oi.product_id = p.id
-        JOIN categories c ON p.category_id = c.id
-        WHERE oi.order_id = %s
-    """
-    return dbFetch(query, [orderId], fetchAll=True) or []
+    items = OrderItem.objects.filter(order_id=orderId).select_related('product', 'product__category').annotate(
+        order_item_id=F('id'),
+        product_name=F('product__name'),
+        category_name=F('product__category__name'),
+        thumbnail=F('product__photo')
+    ).values(
+        'order_item_id', 'product_id', 'product_name', 'quantity', 'price',
+        'product_variant_combination_id', 'category_name', 'thumbnail'
+    )
+    
+    return list(items)
 
 
 def getCombinationNameByOrderId(orderId):
-    query = """
-        SELECT 
-            oi.id AS order_item_id,
-            vo.value AS combination_name
-        FROM order_items oi
-        LEFT JOIN product_variant_combination_options pvco
-            ON pvco.product_variant_combination_id = oi.product_variant_combination_id
-        LEFT JOIN variant_options vo
-            ON vo.id = pvco.variant_option_id
-        WHERE oi.order_id = %s
-        GROUP BY oi.id, vo.value
-        ORDER BY oi.id
-    """
-    return dbFetch(query, [orderId], fetchAll=True) or []
+    # This one involves complex joins for variant names. 
+    # For now, we use a hybrid approach or simpler ORM query.
+    # To keep it clean and match the previous complex logic:
+    from apps.products.models import ProductVariantCombinationOption
+    
+    options = ProductVariantCombinationOption.objects.filter(
+        product_variant_combination__orderitem__order_id=orderId
+    ).annotate(
+        order_item_id=F('product_variant_combination__orderitem__id'),
+        combination_name=F('variant_option__value')
+    ).values('order_item_id', 'combination_name').order_by('order_item_id')
+
+    return list(options)
+
 
 def updateOrderStatus(orderId, newStatusId):
-    query = """
-        UPDATE orders
-        SET status_id = %s
-        WHERE id = %s
-    """
-    dbExecute(query, [newStatusId, orderId])
+    Order.objects.filter(id=orderId).update(status_id=newStatusId)
 
 
 def getOrderStatusesRepo():
-    query = "SELECT id, name FROM order_statuses ORDER BY id ASC"
-    return dbFetch(query, fetchAll=True)
+    return list(OrderStatus.objects.all().values('id', 'name').order_by('id'))

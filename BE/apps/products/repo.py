@@ -1,509 +1,337 @@
-from utils.db import dbFetch
+from .models import (
+    Product, 
+    Category, 
+    ProductGallery, 
+    ProductSpecification, 
+    VariantType, 
+    VariantOption, 
+    ProductVariantCombination,
+    ProductVariantCombinationOption,
+    ProductTag,
+    Tag
+)
+from apps.orders.models import OrderItem, Order
+from django.db.models import F, Sum, Q, Case, When, Value, IntegerField, Count
+from django.db.models.functions import Coalesce, Cast
+from datetime import timedelta
 
 
 def getProducts():
-    query = """
-        SELECT
-            id,
-            name,
-            photo,
-            price,
-            price_unit,
-            total_stock
-        FROM products
-        ORDER BY id
-    """
-    result = dbFetch(query, fetchAll=True)
-
-    return result or []
+    return list(Product.objects.all().values('id', 'name', 'photo', 'price', 'price_unit', 'total_stock').order_by('id'))
 
 
 def getProductById(productId):
-    query ="""
-        SELECT
-            id,
-            name,
-            photo,
-            description,
-            price,
-            price_unit,
-            total_stock
-        FROM products
-        WHERE id = %s
-    """
-    result = dbFetch(query, [productId])
-
-    if not result:
-        return None
-
-    return result
+    product = Product.objects.filter(id=productId).values(
+        'id', 'name', 'photo', 'description', 'price', 'price_unit', 'total_stock'
+    ).first()
+    return product
 
 def calculatePriceRange(productPrice, pricesList):
     if pricesList:
-        minPrice = min(pricesList)
-        maxPrice = max(pricesList)
         return {
-            "min": minPrice,
-            "max": maxPrice,
+            "min": min(pricesList),
+            "max": max(pricesList),
         }
-    
-    return {
-        "min": productPrice,
-        "max": productPrice,
-    }
+    return {"min": productPrice, "max": productPrice}
 
 
 def calculateAvailableStock(productIds, startDate, endDate):
-    # Untuk cek buat detail atau catalog
     isSingleProduct = not isinstance(productIds, (list, tuple, set))
     productIds = [productIds] if isSingleProduct else list(productIds)
+    
     if not productIds:
-        if isSingleProduct:
-            return 0
-        else:
-            return {}
-        
-    # VARIANT COMBINATIONS CHECK
-    query =  """
-        SELECT DISTINCT pvc.product_id
-        FROM product_variant_combinations pvc
-        WHERE pvc.product_id = ANY(%s)
-        """
-    
-    variantRows = dbFetch(query, [productIds], fetchAll=True) or []
-    productsWithVariant = {
-        row["product_id"] 
-        for row in variantRows
-    }
-    # TOTAL STOCK
-    query = """
-        SELECT
-            p.id AS product_id,
-            COALESCE(p.total_stock, 0) AS product_total_stock,
-            COALESCE(SUM(pvc.stock), 0) AS variant_total_stock
-        FROM products p
-        LEFT JOIN product_variant_combinations pvc
-            ON pvc.product_id = p.id
-        WHERE p.id = ANY(%s)
-        GROUP BY p.id
-        """
-    
-    totalStockRows = dbFetch(query, [productIds], fetchAll=True) or []
-    
+        return 0 if isSingleProduct else {}
+
+    # Convert to datetime if they are strings
+    from datetime import datetime
+    if isinstance(startDate, str):
+        startDate = datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
+    if isinstance(endDate, str):
+        endDate = datetime.strptime(endDate, '%Y-%m-%d %H:%M:%S')
+
+    # 1. Identify products with variants
+    productsWithVariant = set(ProductVariantCombination.objects.filter(
+        product_id__in=productIds
+    ).values_list('product_id', flat=True).distinct())
+
+    # 2. Get total stock for each product
+    totalStocks = Product.objects.filter(id__in=productIds).annotate(
+        product_total_stock=Coalesce('total_stock', 0),
+        variant_total_stock=Coalesce(Sum('variant_combinations__stock'), 0)
+    ).values('id', 'product_total_stock', 'variant_total_stock')
+
     totalStockMap = {
-        row["product_id"]: {
-            "productTotalStock": int(row["product_total_stock"] or 0),
-            "variantTotalStock": int(row["variant_total_stock"] or 0),
-        }
-        for row in totalStockRows
+        row['id']: {
+            "productTotalStock": row['product_total_stock'],
+            "variantTotalStock": row['variant_total_stock']
+        } for row in totalStocks
     }
-    
-    # USED STOCK
-    query = """
-        SELECT
-            oi.product_id,
-            COALESCE(SUM(oi.quantity), 0) AS used_stock_all,
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN oi.product_variant_combination_id IS NOT NULL THEN oi.quantity
-                        ELSE 0
-                    END
-                ),
-                0
-            ) AS used_stock_variant
-        FROM order_items oi
-        JOIN orders o ON o.id = oi.order_id
-        JOIN order_statuses os ON os.id = o.status_id
-        WHERE oi.product_id = ANY(%s)
-        AND o.rental_start < %s
-        AND (
-            (os.code IN ('PENDING', 'DP', 'PAID') AND o.rental_end > %s)
-            OR (os.code = 'COMPLETED' AND (o.rental_end + INTERVAL '24 HOURS') > %s)
+
+    # 3. Calculate used stock from orders
+    # Logic: rental_start < endDate AND ( (status in PENDING, DP, PAID AND rental_end > startDate) OR (status COMPLETED AND rental_end + 24h > startDate) )
+    # Note: INTERVAL '24 HOURS' in ORM
+    usedStockRows = OrderItem.objects.filter(
+        product_id__in=productIds,
+        order__rental_start__lt=endDate
+    ).filter(
+        Q(order__status__code__in=['PENDING', 'DP', 'PAID'], order__rental_end__gt=startDate) |
+        Q(order__status__code='COMPLETED', order__rental_end__gt=startDate - timedelta(hours=24))
+    ).values('product_id').annotate(
+        used_stock_all=Sum('quantity'),
+        used_stock_variant=Sum(
+            Case(
+                When(product_variant_combination_id__isnull=False, then='quantity'),
+                default=Value(0),
+                output_field=IntegerField()
+            )
         )
-        GROUP BY oi.product_id
-        """
-    
-    usedStockRows = dbFetch(query, [productIds, endDate, startDate, startDate], fetchAll=True) or []
-    
+    )
+
     usedStockMap = {
-        row["product_id"]: {
-            "usedStockAll": int(row["used_stock_all"] or 0),
-            "usedStockVariant": int(row["used_stock_variant"] or 0),
-        }
-        for row in usedStockRows
+        row['product_id']: {
+            "usedStockAll": row['used_stock_all'],
+            "usedStockVariant": row['used_stock_variant']
+        } for row in usedStockRows
     }
 
     result = {}
-    for productId in productIds:
-        stock = totalStockMap.get(productId, {"productTotalStock": 0, "variantTotalStock": 0})
-        used = usedStockMap.get(productId, {"usedStockAll": 0, "usedStockVariant": 0})
-        hasVariant = productId in productsWithVariant
-
-        if hasVariant:
+    for pid in productIds:
+        stock = totalStockMap.get(pid, {"productTotalStock": 0, "variantTotalStock": 0})
+        used = usedStockMap.get(pid, {"usedStockAll": 0, "usedStockVariant": 0})
+        
+        if pid in productsWithVariant:
             available = stock["variantTotalStock"] - used["usedStockVariant"]
         else:
             available = stock["productTotalStock"] - used["usedStockAll"]
+        
+        result[pid] = max(available, 0)
 
-        result[productId] = available
-
-    if isSingleProduct:
-        return result.get(productIds[0], 0)
-    return result
+    return result.get(productIds[0], 0) if isSingleProduct else result
 
 
 def calculateAvailableStockForCombinations(productId, combinationIds, startDate, endDate):
-
     combinationIds = list(combinationIds)
-
     if not combinationIds:
         return {}
+
+    # Convert to datetime if they are strings
+    from datetime import datetime
+    if isinstance(startDate, str):
+        startDate = datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
+    if isinstance(endDate, str):
+        endDate = datetime.strptime(endDate, '%Y-%m-%d %H:%M:%S')
+
+    # Total Stock
+    totalStocks = ProductVariantCombination.objects.filter(
+        product_id=productId, id__in=combinationIds
+    ).values('id', 'stock')
     
-    # TOTAL STOCK
+    totalStockMap = {row['id']: row['stock'] for row in totalStocks}
 
-    query = """
-    SELECT
-        id,
-        stock
-    FROM product_variant_combinations
-    WHERE product_id = %s
-    AND id = ANY(%s)
-    """
-
-    totalStockRows = dbFetch(query, [productId, combinationIds], fetchAll=True)
-    
-    totalStockMap = {
-
-        row["id"]:
-        int(row["stock"] or 0)
-
-        for row in totalStockRows
-    }
-
-    # USED STOCK
-    query = """
-    SELECT
-        oi.product_variant_combination_id,
-        COALESCE(SUM(oi.quantity), 0) AS used_stock
-    FROM order_items oi
-    JOIN orders o ON o.id = oi.order_id
-    JOIN order_statuses os ON os.id = o.status_id
-    WHERE oi.product_id = %s
-    AND oi.product_variant_combination_id = ANY(%s)
-    AND o.rental_start < %s
-    AND (
-        (os.code IN ('PENDING', 'DP', 'PAID') AND o.rental_end > %s)
-        OR (os.code = 'COMPLETED' AND (o.rental_end + INTERVAL '24 HOURS') > %s)
+    # Used Stock
+    usedStockRows = OrderItem.objects.filter(
+        product_id=productId,
+        product_variant_combination_id__in=combinationIds,
+        order__rental_start__lt=endDate
+    ).filter(
+        Q(order__status__code__in=['PENDING', 'DP', 'PAID'], order__rental_end__gt=startDate) |
+        Q(order__status__code='COMPLETED', order__rental_end__gt=startDate - timedelta(hours=24))
+    ).values('product_variant_combination_id').annotate(
+        used_stock=Sum('quantity')
     )
-    GROUP BY oi.product_variant_combination_id
-    """
 
-    usedStockRows = dbFetch(query, [productId, combinationIds, endDate, startDate, startDate], fetchAll=True) or []
-
-    usedStockMap = {
-        row["product_variant_combination_id"]: int(row["used_stock"] or 0)
-        for row in usedStockRows
-    }
+    usedStockMap = {row['product_variant_combination_id']: row['used_stock'] for row in usedStockRows}
 
     result = {}
-
-    for combinationId in combinationIds:
-
-        totalStock = totalStockMap.get(combinationId, 0)
-        usedStock = usedStockMap.get(combinationId, 0)
-
-        result[combinationId] = (totalStock - usedStock)
+    for cid in combinationIds:
+        total = totalStockMap.get(cid, 0)
+        used = usedStockMap.get(cid, 0)
+        result[cid] = max(total - used, 0)
 
     return result
 
 
-
 def getProductGalleries(productId):
-    query = """
-        SELECT
-            image_url
-        FROM product_galleries
-        WHERE product_id = %s
-        AND product_variant_combination_id IS NULL
-        ORDER BY display_order, id
-        """
-    
-    rows = dbFetch(query, [productId], fetchAll=True)
-
-    return [row["image_url"] for row in rows]
+    return list(ProductGallery.objects.filter(
+        product_id=productId, product_variant_combination_id__isnull=True
+    ).order_by('display_order', 'id').values_list('image_url', flat=True))
 
 
 def getVariantTypes(productId):
-    query = """
-        SELECT
-            id,
-            name,
-            is_required
-        FROM variant_types
-        WHERE product_id = %s
-        ORDER BY id
-        """
-    
-    variantTypes = dbFetch(query, [productId], fetchAll=True) or []
-
-    if not variantTypes:
+    types = VariantType.objects.filter(product_id=productId).order_by('id')
+    if not types.exists():
         return []
 
-    variantTypeIds = [row["id"] for row in variantTypes]
-    query = """
-        SELECT
-            id,
-            variant_type_id,
-            value
-        FROM variant_options
-        WHERE variant_type_id = ANY(%s)
-        ORDER BY id
-        """
-    variantOptions = dbFetch(query, [variantTypeIds], fetchAll=True) or []
-
+    type_ids = list(types.values_list('id', flat=True))
+    options = VariantOption.objects.filter(variant_type_id__in=type_ids).order_by('id')
+    
     optionsMap = {}
-    for row in variantOptions:
-        optionsMap.setdefault(row["variant_type_id"], []).append(
-            {
-                "idOption": row["id"],
-                "valueOption": row["value"],
-            }
-        )
+    for opt in options:
+        optionsMap.setdefault(opt.variant_type_id, []).append({
+            "idOption": opt.id,
+            "valueOption": opt.value
+        })
 
-    return [
-        {
-            "idVariant": row["id"],
-            "variantName": row["name"],
-            "isRequired": bool(row["is_required"]),
-            "options": optionsMap.get(row["id"], []),
-        }
-        for row in variantTypes
-    ]
+    return [{
+        "idVariant": t.id,
+        "variantName": t.name,
+        "isRequired": t.is_required,
+        "options": optionsMap.get(t.id, [])
+    } for t in types]
 
 
 def getVariantCombinations(productId, startDate, endDate):
-    # Cek kalau request untuk catalog (bulk) atau detail (single)
     isBulkRequest = isinstance(productId, (list, tuple, set))
 
     if isBulkRequest:
         productIds = list(productId)
-        if not productIds:
-            return {}
+        if not productIds: return {}
+        
+        # In the original, there was a view 'product_variant_combination_view'
+        # Since we are ORM only, we must calculate the price if it's dynamic, 
+        # but the model has a price field. We'll use the model price.
+        prices = ProductVariantCombination.objects.filter(
+            product_id__in=productIds
+        ).values('product_id', 'price').order_by('product_id', 'id')
+        
+        priceMap = {}
+        for p in prices:
+            if p['price'] is not None:
+                priceMap.setdefault(p['product_id'], []).append(p['price'])
+        return priceMap
 
-        rows = dbFetch(
-            """
-            SELECT
-                pvc.product_id,
-                pvcv.price
-            FROM product_variant_combinations pvc
-            LEFT JOIN product_variant_combination_view pvcv
-                ON pvcv.combination_id = pvc.id
-            WHERE pvc.product_id = ANY(%s)
-            ORDER BY pvc.product_id, pvc.id
-            """,
-            [productIds],
-            fetchAll=True,
-        ) or []
-
-        priceValuesMap = {}
-        for row in rows:
-            price = row["price"]
-            if price is None:
-                continue
-
-            priceValuesMap.setdefault(row["product_id"], []).append(price)
-
-        return priceValuesMap
-
-    query = """
-        SELECT
-            pvc.id AS combination_id,
-            p.id AS product_id,
-            p.name AS product_name,
-            pvc.stock,
-            pvcv.price,
-            ARRAY_AGG(vo.value ORDER BY vt.name) AS variants,
-            ARRAY_AGG(vo.id ORDER BY vt.name) AS variant_option_ids
-        FROM product_variant_combinations pvc
-        JOIN products p
-            ON p.id = pvc.product_id
-        JOIN product_variant_combination_options pvco
-            ON pvco.product_variant_combination_id = pvc.id
-        JOIN variant_options vo
-            ON vo.id = pvco.variant_option_id
-        JOIN variant_types vt
-            ON vt.id = vo.variant_type_id
-        LEFT JOIN product_variant_combination_view pvcv
-            ON pvcv.combination_id = pvc.id
-        WHERE pvc.product_id = %s
-        GROUP BY pvc.id, p.id, p.name, pvc.stock, pvcv.price
-        ORDER BY pvc.id
-        """
+    # Single Product
+    # ARRAY_AGG replacement in Django ORM is tricky. We'll fetch and group in Python.
+    combinations = ProductVariantCombination.objects.filter(
+        product_id=productId
+    ).prefetch_related('combination_options__variant_option', 'combination_options__variant_option__variant_type').order_by('id')
     
-    combinations = dbFetch(query, [productId], fetchAll=True) or []
-
-    if not combinations:
+    if not combinations.exists():
         return [], []
 
-    combinationIds = [row["combination_id"] for row in combinations]
-
-    priceValues = []
-    for row in combinations:
-        normalizedPrice = row["price"]
-        if normalizedPrice is not None:
-            priceValues.append(normalizedPrice)
-
-    query = """
-        SELECT
-            product_variant_combination_id,
-            image_url
-        FROM product_galleries
-        WHERE product_variant_combination_id = ANY(%s)
-        ORDER BY display_order, id
-        """
+    comb_ids = [c.id for c in combinations]
     
-    galleryRows = dbFetch(query, [combinationIds], fetchAll=True) or []
+    # Galleries
+    galleries = ProductGallery.objects.filter(
+        product_variant_combination_id__in=comb_ids
+    ).order_by('display_order', 'id')
+    
+    galMap = {}
+    for g in galleries:
+        galMap.setdefault(g.product_variant_combination_id, []).append(g.image_url)
 
-    galleryMap = {}
-    for row in galleryRows:
-        galleryMap.setdefault(row["product_variant_combination_id"], []).append(
-            row["image_url"]
-        )
+    # Stock
+    stockMap = calculateAvailableStockForCombinations(productId, comb_ids, startDate, endDate)
 
-    stockMap = calculateAvailableStockForCombinations(
-        productId,
-        combinationIds,
-        startDate,
-        endDate,
-    )
+    combinationsData = []
+    priceValues = []
+    
+    for c in combinations:
+        # Get variants and option IDs
+        opts = c.combination_options.all().order_by('variant_option__variant_type__name')
+        v_names = [o.variant_option.value for o in opts]
+        v_ids = [o.variant_option_id for o in opts]
+        
+        if c.price is not None:
+            priceValues.append(c.price)
 
-    combinationsData = [
-        {
-            "idVariantCombination": row["combination_id"],
-            "stock": stockMap.get(row["combination_id"], int(row["stock"] or 0)),
-            "options": row["variant_option_ids"] or [],
-            "variants": row["variants"] or [],
-            "price": row["price"],
-            "gallery": galleryMap.get(row["combination_id"], []),
-        }
-        for row in combinations
-    ]
+        combinationsData.append({
+            "idVariantCombination": c.id,
+            "stock": stockMap.get(c.id, c.stock),
+            "options": v_ids,
+            "variants": v_names,
+            "price": c.price,
+            "gallery": galMap.get(c.id, [])
+        })
 
     return combinationsData, priceValues
 
 
 def getProductSpecifications(productId):
-    query = """
-        SELECT
-            specification
-        FROM product_specifications
-        WHERE product_id = %s
-        ORDER BY id
-        """
-    
-    rows = dbFetch(query, [productId], fetchAll=True) or []
-
-    return [row["specification"] for row in rows]
+    return list(ProductSpecification.objects.filter(
+        product_id=productId
+    ).order_by('id').values_list('specification', flat=True))
 
 def getProductFeatures(productId):
-    query = """
-        SELECT t.name, pt.weight
-        FROM product_tags pt
-        JOIN tags t ON t.id = pt.tag_id
-        WHERE pt.product_id = %s
-    """
-    return dbFetch(query, [productId], fetchAll=True)
+    return list(ProductTag.objects.filter(
+        product_id=productId
+    ).select_related('tag').annotate(
+        name=F('tag__name')
+    ).values('name', 'weight'))
 
 
 def getProductCategoryCandidates(excludedCategoryIds):
-    query = """
-        SELECT 
-            p.id, p.name, p.photo, p.price, p.price_unit, p.total_stock, p.category_id
-        FROM products p
-        WHERE p.category_id != ALL(%s)
-    """
-    return dbFetch(query, [excludedCategoryIds], fetchAll=True)
+    return list(Product.objects.exclude(
+        category_id__in=excludedCategoryIds
+    ).values('id', 'name', 'photo', 'price', 'price_unit', 'total_stock', 'category_id'))
 
 
 def getAllProductFeatures(productIds):
-    query = """
-        SELECT pt.product_id, t.name, pt.weight
-        FROM product_tags pt
-        JOIN tags t ON t.id = pt.tag_id
-        WHERE pt.product_id = ANY(%s)
-    """
-    return dbFetch(query, [productIds], fetchAll=True)
+    return list(ProductTag.objects.filter(
+        product_id__in=productIds
+    ).select_related('tag').annotate(
+        name=F('tag__name')
+    ).values('product_id', 'name', 'weight'))
 
 
 def getProductCategoryInfo(productIds):
-    query = """
-        SELECT id, category_id 
-        FROM products 
-        WHERE id = ANY(%s)
-    """
-    return dbFetch(query, [productIds], fetchAll=True)
+    return list(Product.objects.filter(id__in=productIds).values('id', 'category_id'))
 
 
 def getCombinationVariantDetails(combinationId):
-    query = """
-        SELECT 
-            pvco.variant_option_id,
-            vt.id as variant_type_id,
-            vt.is_upsell_dimension,
-            pvc.price,
-            pvc.product_id
-        FROM product_variant_combination_options pvco
-        JOIN variant_options vo ON vo.id = pvco.variant_option_id
-        JOIN variant_types vt ON vt.id = vo.variant_type_id
-        JOIN product_variant_combinations pvc ON pvc.id = pvco.product_variant_combination_id
-        WHERE pvco.product_variant_combination_id = %s
-    """
-    return dbFetch(query, [combinationId], fetchAll=True)
+    return list(ProductVariantCombinationOption.objects.filter(
+        product_variant_combination_id=combinationId
+    ).select_related('variant_option', 'variant_option__variant_type', 'product_variant_combination').annotate(
+        variant_type_id=F('variant_option__variant_type_id'),
+        is_upsell_dimension=F('variant_option__variant_type__is_upsell_dimension'),
+        price=F('product_variant_combination__price'),
+        product_id=F('product_variant_combination__product_id')
+    ).values('variant_option_id', 'variant_type_id', 'is_upsell_dimension', 'price', 'product_id'))
 
 
 def getSimilarCombinationsWithHigherPrice(productId, currentPrice, upsellDimensionTypeId, currentUpsellOptionId, fixedOptionIds):
-    query = """
-        SELECT 
-            pvc.id,
-            pvc.price,
-            pvc.stock,
-            p.name as product_name,
-            p.photo as product_photo,
-            p.price_unit
-        FROM product_variant_combinations pvc
-        JOIN products p ON p.id = pvc.product_id
-        WHERE pvc.product_id = %s
-        AND pvc.price > %s
-        AND EXISTS (
-            SELECT 1 FROM product_variant_combination_options pvco_u
-            WHERE pvco_u.product_variant_combination_id = pvc.id
-            AND pvco_u.variant_option_id != %s
-            AND EXISTS (
-                SELECT 1 FROM variant_options vo_u
-                WHERE vo_u.id = pvco_u.variant_option_id
-                AND vo_u.variant_type_id = %s
-            )
-        )
-    """
+    # This involves complex subqueries (EXISTS)
+    # We'll use filters for the existence checks
+    
+    # Base Query: Combinations of same product with higher price
+    query = ProductVariantCombination.objects.filter(
+        product_id=productId,
+        price__gt=currentPrice
+    )
 
-    params = [productId, currentPrice, currentUpsellOptionId, upsellDimensionTypeId]
-    for optionId in fixedOptionIds:
-        query += f"""
-        AND EXISTS (
-            SELECT 1 FROM product_variant_combination_options pvco_{optionId}
-            WHERE pvco_{optionId}.product_variant_combination_id = pvc.id
-            AND pvco_{optionId}.variant_option_id = %s
-        )
-        """
-        params.append(optionId)
+    # Constraint: Must have a different option in the upsell dimension
+    query = query.filter(
+        combination_options__variant_option__variant_type_id=upsellDimensionTypeId
+    ).exclude(
+        combination_options__variant_option_id=currentUpsellOptionId
+    )
 
-    return dbFetch(query, params, fetchAll=True)
+    # Constraint: Must have all fixed options
+    for opt_id in fixedOptionIds:
+        query = query.filter(combination_options__variant_option_id=opt_id)
+
+    # Final Select and Format
+    results = query.select_related('product').annotate(
+        product_name=F('product__name'),
+        product_photo=F('product__photo'),
+        product_price_unit=F('product__price_unit')
+    ).values(
+        'id', 'price', 'stock', 'product_name', 'product_photo', 'product_price_unit'
+    )
+
+    # Rename for output consistency
+    formatted = []
+    for r in results:
+        formatted.append({
+            "id": r['id'],
+            "price": r['price'],
+            "stock": r['stock'],
+            "product_name": r['product_name'],
+            "product_photo": r['product_photo'],
+            "price_unit": r['product_price_unit']
+        })
+    return formatted
 
 
 def validateProductCombination(productId, combinationId):
-    query = """
-        SELECT 1 FROM product_variant_combinations
-        WHERE id = %s AND product_id = %s
-    """
-    result = dbFetch(query, [combinationId, productId])
-    return result is not None
+    return ProductVariantCombination.objects.filter(id=combinationId, product_id=productId).exists()
