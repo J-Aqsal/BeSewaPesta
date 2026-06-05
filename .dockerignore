@@ -1,0 +1,11 @@
+**/__pycache__
+**/*.pyc
+**/venv
+**/.git
+**/.vscode
+BE/db.sqlite3
+.env
+Dockerfile
+docker-compose.yml
+**/*.md
+**/*.pdf

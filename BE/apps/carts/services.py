@@ -13,7 +13,10 @@ from .repo import (
     addCartItem,
     updateCartItemQuantity,
     validateCartItemOwnership,
-    deleteCartItem
+    deleteCartItem,
+    updateCartActivity,
+    getExistingCategoriesRepo,
+    expireCartsRepo
 )
 
 def getCartDetailByGuestId(guestId):
@@ -21,6 +24,9 @@ def getCartDetailByGuestId(guestId):
 
     if not cart:
         return None
+
+    # Update activity on view
+    updateCartActivity(cart["id"])
 
     cartId = cart["id"]
     rentalStart = cart["rental_start"]
@@ -76,36 +82,65 @@ def getCartDetailByGuestId(guestId):
     }
 
 
-def upsertCart(guestId, rentalStart, rentalEnd):
+def addItemToCart(guestId, productId, combinationId, quantity, startDate, endDate):
     cart = getCartByGuestId(guestId)
+    
+    # Helper to parse and compare dates flexibly
+    def areDatesEqual(dbVal, inputVal):
+        if not dbVal or not inputVal:
+            return False
+        try:
+            from datetime import datetime
+            formats = ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d']
+            inputDt = None
+            for fmt in formats:
+                try:
+                    inputDt = datetime.strptime(inputVal.split('.')[0], fmt)
+                    break
+                except:
+                    continue
+
+            if not inputDt:
+                return str(dbVal) == str(inputVal)
+
+            dbDt = dbVal if isinstance(dbVal, datetime) else None
+            if dbDt:
+                return dbDt.replace(microsecond=0) == inputDt
+
+            return str(dbVal) == str(inputDt)
+        except:
+            return str(dbVal) == str(inputVal)
 
     if cart:
-        updateCartRentalDates(cart['id'], rentalStart, rentalEnd)
-        return {"id": cart['id'], "action": "updated"}
+        cartId = cart['id']
+        cartItems = getCartItemsByCartId(cartId)
+
+        if cartItems:
+            if not areDatesEqual(cart['rental_start'], startDate) or not areDatesEqual(cart['rental_end'], endDate):
+                return {"success": False, "message": "Please complete your current cart before changing rental dates."}
+
+        updateCartRentalDates(cartId, startDate, endDate)
     else:
-        new_cart = createCart(guestId, rentalStart, rentalEnd)
-        return {"id": new_cart['id'], "action": "created"}
+        result = createCart(guestId, startDate, endDate)
+        cartId = result['id']
 
-
-def addItemToCart(guestId, productId, combinationId, quantity):
-    cart = getCartByGuestId(guestId)
-    if not cart:
-        return {"success": False, "message": "Cart not found. Please set rental dates first."}
 
     if combinationId:
         isValid = validateProductCombination(productId, combinationId)
         if not isValid:
             return {"success": False, "message": "Invalid variant combination for this product."}
 
-    existingItem = getCartItem(cart['id'], productId, combinationId)
+    existingItem = getCartItem(cartId, productId, combinationId)
     
     if existingItem:
         newQuantity = existingItem['quantity'] + int(quantity)
         updateCartItemQuantity(existingItem['id'], newQuantity)
-        return {"success": True, "message": "Item quantity updated in cart.", "cartId": cart['id']}
+        updateCartActivity(cartId)
+        return {"success": True, "message": "Item quantity updated in cart.", "cartId": cartId}
     else:
-        addCartItem(cart['id'], productId, combinationId, quantity)
-        return {"success": True, "message": "Item added to cart.", "cartId": cart['id']}
+        addCartItem(cartId, productId, combinationId, quantity)
+        updateCartActivity(cartId)
+        return {"success": True, "message": "Item added to cart.", "cartId": cartId}
 
 
 def removeItemFromCart(cartItemId, guestId):
@@ -114,5 +149,41 @@ def removeItemFromCart(cartItemId, guestId):
     if not isValid:
         return {"success": False, "message": "Item not found or does not belong to your cart."}
     
+    cart = getCartByGuestId(guestId)
+    if cart:
+        updateCartActivity(cart['id'])
+        
     deleteCartItem(cartItemId)
     return {"success": True, "message": "Item removed from cart."}
+
+
+def updateItemQuantityService(guestId, cartItemId, quantity):
+    isValid = validateCartItemOwnership(cartItemId, guestId)
+    
+    if not isValid:
+        return {"success": False, "message": "Item not found or does not belong to your cart."}
+    
+    cart = getCartByGuestId(guestId)
+    if cart:
+        updateCartActivity(cart['id'])
+        
+    if int(quantity) <= 0:
+        deleteCartItem(cartItemId)
+        return {"success": True, "message": "Item removed from cart due to zero quantity."}
+        
+    updateCartItemQuantity(cartItemId, quantity)
+    return {"success": True, "message": "Item quantity updated."}
+
+
+def getExistingCategoriesService(guestId):
+    cart = getCartByGuestId(guestId)
+    if not cart:
+        return []
+    
+    updateCartActivity(cart['id'])
+    return getExistingCategoriesRepo(cart['id'])
+
+
+def expireInactiveCartsService(hoursThreshold=24):
+    count = expireCartsRepo(hoursThreshold)
+    return {"success": True, "message": f"Expired {count} inactive carts."}
