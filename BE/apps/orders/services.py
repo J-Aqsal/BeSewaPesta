@@ -242,10 +242,13 @@ def getOrderDetail(orderId):
         })
     
     totalPrice = int(order["total_price"])
+    totalDays = calculateDurationDays(order['rental_start'], order['rental_end'])
+    productTotal = sum(item["price"] * item["quantity"] for item in orderItems)
+    subtotalBeforeShipping = sum(item["price"] * item["quantity"] for item in orderItems) * totalDays
+    subtotalBeforeShippingDP = subtotalBeforeShipping // 2
     shippingCost = int(order["shipping_cost"])
-    totalRentalAmount = totalPrice - shippingCost
-    downPayment = totalRentalAmount // 2
-    remainingPayment = totalPrice - downPayment
+    totalDP = subtotalBeforeShippingDP + shippingCost
+    remainingPayment = subtotalBeforeShippingDP
 
     return {
         "idOrder": order["order_id"],
@@ -255,10 +258,13 @@ def getOrderDetail(orderId):
         "phoneNumber": order["phone_number"],
         "shippingAddress": order["shipping_address"],
         "city": order["city"],
+        "productTotal": int(productTotal),
         "shippingCost": shippingCost,
         "totalPrice": totalPrice,
-        "downPayment": downPayment,
-        "remainingPayment": remainingPayment,
+        "subtotalBeforeShipping": int(subtotalBeforeShipping),
+        "subtotalBeforeShippingDP": int(subtotalBeforeShippingDP),
+        "totalDP": int(totalDP),
+        "remainingPayment": int(remainingPayment),
         "status": order["status_name"],
         "createdAt": order["created_at"].strftime('%Y-%m-%d %H:%M:%S') if order["created_at"] else None,
         "items": formattedItems,
