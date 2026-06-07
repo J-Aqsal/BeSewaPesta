@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'apps.tmp_models',
     'apps.recommendations',
     'apps.authentication',
+    'rest_framework_simplejwt.token_blacklist',
 ]
 
 MIDDLEWARE = [
