@@ -28,14 +28,19 @@ def getProductCatalogData(start_date, end_date):
     )
 
     for product in products:
+        priceRange = calculatePriceRange(product["price"], priceValuesMap.get(product["id"], []))
+        stock = stockMap.get(product["id"], 0)
         catalog.append(
             {
                 "id": product["id"],
                 "name": product["name"],
+                "category": product["category_name"],
                 "image": product["photo"],
-                "priceRange": calculatePriceRange(product["price"], priceValuesMap.get(product["id"], [])),
+                "isAvailable": stock > 0,
+                "minPrice": priceRange["min"],
+                "maxPrice": priceRange["max"],
                 "priceUnit": product["price_unit"],
-                "stock": stockMap.get(product["id"], 0),
+                "stock": stock,
             }
         )
 
@@ -58,6 +63,7 @@ def getProductDetailData(product_id, start_date, end_date):
     return {
         "idProduct": product["id"],
         "productName": product["name"],
+        "category": product["category_name"],
         "productDescription": product["description"],
         "priceRange": calculatePriceRange(product["price"], priceValues),
         "unitPrice": product["price_unit"],
