@@ -36,7 +36,6 @@ def getCartItemsByCartId(cartId):
         'total_stock', 'category_name', 'combination_price'
     ).order_by('id')
 
-    # Convert to expected dictionary format
     results = []
     for item in items:
         results.append({
@@ -57,7 +56,6 @@ def getCartItemsByCartId(cartId):
 
 
 def getVariantCombinationDetail(combinationId):
-    # Fetch values ordered by variant type id
     values = VariantOption.objects.filter(
         productvariantcombinationoption__product_variant_combination_id=combinationId
     ).order_by('variant_type_id').values_list('value', flat=True)
@@ -78,9 +76,8 @@ def updateCartRentalDates(cartId, rentalStart, rentalEnd):
     Cart.objects.filter(id=cartId).update(
         rental_start=rentalStart, 
         rental_end=rentalEnd,
-        updated_at=F('updated_at') # Standard update
+        updated_at=F('updated_at')
     )
-    # Manual update for updated_at if not handled by auto_now
     from django.utils import timezone
     Cart.objects.filter(id=cartId).update(updated_at=timezone.now())
 
@@ -146,11 +143,6 @@ def expireCartsRepo(hoursThreshold=24):
     
     if count > 0:
         cart_ids = list(inactive_carts.values_list('id', flat=True))
-        # CartItems will be deleted via CASCADE if configured in models, 
-        # but since we have managed=False and manual deletes in clearCart, 
-        # let's be explicit if needed. 
-        # Actually with managed=False Django won't enforce CASCADE at DB level 
-        # unless we do it here.
         CartItem.objects.filter(cart_id__in=cart_ids).delete()
         inactive_carts.delete()
         

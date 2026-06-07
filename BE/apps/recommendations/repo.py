@@ -3,7 +3,6 @@ from django.db.models import F
 
 
 def getProductUpsellRelations(productId):
-    # Fetch upsell relations using ORM
     relations = ProductUpsellRelation.objects.filter(
         source_product_id=productId
     ).select_related('target_product').annotate(
@@ -18,7 +17,6 @@ def getProductUpsellRelations(productId):
         'product_price', 'price_unit', 'total_stock'
     )
 
-    # Re-map target_id to target_product_id for API consistency
     results = []
     for r in relations:
         results.append({
