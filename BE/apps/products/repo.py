@@ -17,12 +17,12 @@ from datetime import timedelta
 
 
 def getProducts():
-    return list(Product.objects.all().values('id', 'name', 'photo', 'price', 'price_unit', 'total_stock').order_by('id'))
+    return list(Product.objects.all().annotate(category_name=F('category__name')).values('id', 'name', 'photo', 'price', 'price_unit', 'total_stock', 'category_name').order_by('id'))
 
 
 def getProductById(productId):
-    product = Product.objects.filter(id=productId).values(
-        'id', 'name', 'photo', 'description', 'price', 'price_unit', 'total_stock'
+    product = Product.objects.filter(id=productId).annotate(category_name=F('category__name')).values(
+        'id', 'name', 'photo', 'description', 'price', 'price_unit', 'total_stock', 'category_name'
     ).first()
     return product
 
