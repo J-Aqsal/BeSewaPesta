@@ -42,7 +42,6 @@ def calculateAvailableStock(productIds, startDate, endDate):
     if not productIds:
         return 0 if isSingleProduct else {}
 
-    # Convert to datetime if they are strings
     from datetime import datetime
     if isinstance(startDate, str):
         startDate = datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
@@ -68,7 +67,7 @@ def calculateAvailableStock(productIds, startDate, endDate):
     }
 
     # 3. Calculate used stock from orders
-    # Logic: rental_start < endDate AND ( (status in PENDING, DP, PAID AND rental_end > startDate) OR (status COMPLETED AND rental_end + 24h > startDate) )
+    # rental_start < endDate AND ( (status in PENDING, DP, PAID AND rental_end > startDate) OR (status COMPLETED AND rental_end + 24h > startDate) )
     # Note: INTERVAL '24 HOURS' in ORM
     usedStockRows = OrderItem.objects.filter(
         product_id__in=productIds,
@@ -114,7 +113,6 @@ def calculateAvailableStockForCombinations(productId, combinationIds, startDate,
     if not combinationIds:
         return {}
 
-    # Convert to datetime if they are strings
     from datetime import datetime
     if isinstance(startDate, str):
         startDate = datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
@@ -187,9 +185,6 @@ def getVariantCombinations(productId, startDate, endDate):
         productIds = list(productId)
         if not productIds: return {}
         
-        # In the original, there was a view 'product_variant_combination_view'
-        # Since we are ORM only, we must calculate the price if it's dynamic, 
-        # but the model has a price field. We'll use the model price.
         prices = ProductVariantCombination.objects.filter(
             product_id__in=productIds
         ).values('product_id', 'price').order_by('product_id', 'id')
@@ -200,8 +195,6 @@ def getVariantCombinations(productId, startDate, endDate):
                 priceMap.setdefault(p['product_id'], []).append(p['price'])
         return priceMap
 
-    # Single Product
-    # ARRAY_AGG replacement in Django ORM is tricky. We'll fetch and group in Python.
     combinations = ProductVariantCombination.objects.filter(
         product_id=productId
     ).prefetch_related('combination_options__variant_option', 'combination_options__variant_option__variant_type').order_by('id')
@@ -290,9 +283,7 @@ def getCombinationVariantDetails(combinationId):
 
 
 def getSimilarCombinationsWithHigherPrice(productId, currentPrice, upsellDimensionTypeId, currentUpsellOptionId, fixedOptionIds):
-    # This involves complex subqueries (EXISTS)
-    # We'll use filters for the existence checks
-    
+
     # Base Query: Combinations of same product with higher price
     query = ProductVariantCombination.objects.filter(
         product_id=productId,
@@ -310,7 +301,6 @@ def getSimilarCombinationsWithHigherPrice(productId, currentPrice, upsellDimensi
     for opt_id in fixedOptionIds:
         query = query.filter(combination_options__variant_option_id=opt_id)
 
-    # Final Select and Format
     results = query.select_related('product').annotate(
         product_name=F('product__name'),
         product_photo=F('product__photo'),
@@ -319,7 +309,6 @@ def getSimilarCombinationsWithHigherPrice(productId, currentPrice, upsellDimensi
         'id', 'price', 'stock', 'product_name', 'product_photo', 'product_price_unit'
     )
 
-    # Rename for output consistency
     formatted = []
     for r in results:
         formatted.append({

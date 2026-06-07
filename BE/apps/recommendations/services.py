@@ -20,9 +20,7 @@ def getUpsellingRecommendations(productId, variantId=None, startDate=None, endDa
         quantity = 1
 
     if variantId:
-        # Scenario 2: Product with variant combination
-        # Find upsells based on 'is_upsell_dimension' in variant types
-        
+
         variantDetails = getCombinationVariantDetails(variantId)
         if not variantDetails:
             return []
@@ -54,10 +52,6 @@ def getUpsellingRecommendations(productId, variantId=None, startDate=None, endDa
         
         recommendations = []
         for combo in upsellCombinations:
-            # Recursive stock check: if combo doesn't have stock, we might need to look further,
-            # but for variants, we usually just list available ones.
-            # However, following the requirement to "search for B if A->B fails",
-            # for variants, we check if the combination has stock.
             stockMap = calculateAvailableStockForCombinations(actualProductId, [combo['id']], startDate, endDate)
             availableStock = stockMap.get(combo['id'], 0)
             
@@ -74,10 +68,7 @@ def getUpsellingRecommendations(productId, variantId=None, startDate=None, endDa
                 })
         return recommendations
 
-    else:
-        # Scenario 1: Product without combination ID
-        # Use product_upsell_relations table with recursive fallback
-        
+    else:        
         return _get_product_upsell_recursive(productId, startDate, endDate, quantity, visited=set())
 
 def _get_product_upsell_recursive(productId, startDate, endDate, quantity, visited):
@@ -104,7 +95,6 @@ def _get_product_upsell_recursive(productId, startDate, endDate, quantity, visit
                 "idVariantCombination": None
             })
         else:
-            # Fallback: find upsells of the target product if it's out of stock
             fallback_recs = _get_product_upsell_recursive(targetProductId, startDate, endDate, quantity, visited)
             recommendations.extend(fallback_recs)
 
