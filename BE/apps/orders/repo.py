@@ -1,5 +1,6 @@
 from .models import Order, OrderItem, OrderStatus
 from django.db.models import F
+from django.utils import timezone
 
 
 def insertOrder(guestId, totalPrice, statusId, rentalStart, rentalEnd, recipientName, phoneNumber, shippingAddress, city, shippingCost):
@@ -35,8 +36,8 @@ def getOrders():
     ).values(
         'order_id', 'guest_id', 'total_price', 'rental_start', 'rental_end',
         'recipient_name', 'phone_number', 'shipping_address', 'city',
-        'shipping_cost', 'created_at', 'status_name'
-    ).order_by('-created_at')
+        'shipping_cost', 'created_at', 'status_name', 'updated_at'
+    ).order_by('updated_at')
     
     return list(orders)
 
@@ -48,7 +49,7 @@ def getOrderByOrderId(orderId):
     ).values(
         'order_id', 'guest_id', 'total_price', 'rental_start', 'rental_end',
         'recipient_name', 'phone_number', 'shipping_address', 'city',
-        'shipping_cost', 'created_at', 'status_name'
+        'shipping_cost', 'created_at', 'status_name', 'updated_at'
     )
     
     return list(order)
@@ -82,7 +83,10 @@ def getCombinationNameByOrderId(orderId):
 
 
 def updateOrderStatus(orderId, newStatusId):
-    Order.objects.filter(id=orderId).update(status_id=newStatusId)
+    Order.objects.filter(id=orderId).update(
+        status_id=newStatusId,
+        updated_at=timezone.now()
+    )
 
 
 def getOrderStatusesRepo():
