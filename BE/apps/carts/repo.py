@@ -103,6 +103,13 @@ def addCartItem(cartId, productId, combinationId, quantity):
     )
 
 
+def getCartItemById(cartItemId):
+    item = CartItem.objects.filter(id=cartItemId).values(
+        'id', 'product_id', 'product_variant_combination_id', 'quantity'
+    ).first()
+    return item
+
+
 def updateCartItemQuantity(cartItemId, newQuantity):
     CartItem.objects.filter(id=cartItemId).update(quantity=newQuantity)
 
