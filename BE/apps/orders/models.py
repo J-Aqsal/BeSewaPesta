@@ -15,7 +15,7 @@ class OrderStatus(models.Model):
 
 
 class Order(models.Model):
-    guest_id = models.CharField(max_length=255)
+    guest_id = models.UUIDField()
     total_price = models.DecimalField(max_digits=12, decimal_places=2)
     status = models.ForeignKey(OrderStatus, on_delete=models.DO_NOTHING, related_name='orders')
     rental_start = models.DateTimeField()
