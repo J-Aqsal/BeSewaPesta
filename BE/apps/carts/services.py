@@ -11,6 +11,7 @@ from .repo import (
     createCart,
     getCartItem,
     addCartItem,
+    getCartItemById,
     updateCartItemQuantity,
     validateCartItemOwnership,
     deleteCartItem,
@@ -25,7 +26,6 @@ def getCartDetailByGuestId(guestId):
     if not cart:
         return None
 
-    # Update activity on view
     updateCartActivity(cart["id"])
 
     cartId = cart["id"]
@@ -85,7 +85,6 @@ def getCartDetailByGuestId(guestId):
 def addItemToCart(guestId, productId, combinationId, quantity, startDate, endDate):
     cart = getCartByGuestId(guestId)
     
-    # Helper to parse and compare dates flexibly
     def areDatesEqual(dbVal, inputVal):
         if not dbVal or not inputVal:
             return False
@@ -129,15 +128,26 @@ def addItemToCart(guestId, productId, combinationId, quantity, startDate, endDat
         isValid = validateProductCombination(productId, combinationId)
         if not isValid:
             return {"success": False, "message": "Invalid variant combination for this product."}
+        
+        stockMap = calculateAvailableStockForCombinations(productId, [combinationId], startDate, endDate)
+        availableStock = stockMap.get(combinationId, 0)
+    else:
+        availableStock = calculateAvailableStock(productId, startDate, endDate)
 
     existingItem = getCartItem(cartId, productId, combinationId)
     
     if existingItem:
         newQuantity = existingItem['quantity'] + int(quantity)
+        if newQuantity > availableStock:
+            return {"success": False, "message": f"Requested quantity exceeds available stock. Available: {availableStock}"}
+        
         updateCartItemQuantity(existingItem['id'], newQuantity)
         updateCartActivity(cartId)
         return {"success": True, "message": "Item quantity updated in cart.", "cartId": cartId}
     else:
+        if int(quantity) > availableStock:
+            return {"success": False, "message": f"Requested quantity exceeds available stock. Available: {availableStock}"}
+            
         addCartItem(cartId, productId, combinationId, quantity)
         updateCartActivity(cartId)
         return {"success": True, "message": "Item added to cart.", "cartId": cartId}
@@ -170,6 +180,21 @@ def updateItemQuantityService(guestId, cartItemId, quantity):
     if int(quantity) <= 0:
         deleteCartItem(cartItemId)
         return {"success": True, "message": "Item removed from cart due to zero quantity."}
+
+    itemDetail = getCartItemById(cartItemId)
+    productId = itemDetail['product_id']
+    combinationId = itemDetail['product_variant_combination_id']
+    startDate = cart['rental_start']
+    endDate = cart['rental_end']
+
+    if combinationId:
+        stockMap = calculateAvailableStockForCombinations(productId, [combinationId], startDate, endDate)
+        availableStock = stockMap.get(combinationId, 0)
+    else:
+        availableStock = calculateAvailableStock(productId, startDate, endDate)
+
+    if int(quantity) > availableStock:
+        return {"success": False, "message": f"Requested quantity exceeds available stock. Available: {availableStock}"}
         
     updateCartItemQuantity(cartItemId, quantity)
     return {"success": True, "message": "Item quantity updated."}
