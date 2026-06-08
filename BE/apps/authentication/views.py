@@ -11,6 +11,36 @@ class LoginAPIView(TokenObtainPairView):
     serializer_class = LoginSerializer
     permission_classes = [AllowAny]
 
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        access_token = serializer.validated_data.get("access")
+        refresh_token = serializer.validated_data.get("refresh")
+        user = serializer.validated_data.get("user")
+
+        response = successResponse(
+            message="Login berhasil"
+        )
+
+        response.set_cookie(
+            key="accessToken",
+            value=access_token,
+            httponly=True,
+            secure=False,  # True kalau sudah HTTPS
+            samesite="Lax",
+        )
+
+        response.set_cookie(
+            key="refreshToken",
+            value=refresh_token,
+            httponly=True,
+            secure=False,  # True kalau sudah HTTPS
+            samesite="Lax",
+        )
+
+        return response
+
 
 class RefreshTokenAPIView(TokenRefreshView):
     permission_classes = [AllowAny]
