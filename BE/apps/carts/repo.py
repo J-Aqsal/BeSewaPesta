@@ -1,215 +1,157 @@
-from utils.db import dbFetch, dbExecute
+from .models import Cart, CartItem
+from apps.products.models import Product, ProductVariantCombination, VariantOption
+from django.db.models import F
+import uuid
 
 
 def getCartByGuestId(guestId):
+    cart = Cart.objects.filter(guest_id=guestId).order_by('-created_at').first()
 
-    query = """
-        SELECT
-            id,
-            guest_id,
-            rental_start,
-            rental_end,
-            created_at
-        FROM carts
-        WHERE guest_id = %s
-        ORDER BY created_at DESC
-        LIMIT 1
-    """
-
-    result = dbFetch(query, [guestId])
-
-    if not result:
+    if not cart:
         return None
     
     return {
-        "id": result['id'],
-        "guest_id": result['guest_id'],
-        "rental_start": result['rental_start'],
-        "rental_end": result['rental_end'],
-        "created_at": result['created_at']
+        "id": cart.id,
+        "guest_id": cart.guest_id,
+        "rental_start": cart.rental_start,
+        "rental_end": cart.rental_end,
+        "created_at": cart.created_at
     }
 
 
 def getCartItemsByCartId(cartId):
+    items = CartItem.objects.filter(cart_id=cartId).select_related(
+        'product', 'product__category', 'product_variant_combination'
+    ).annotate(
+        product_name=F('product__name'),
+        photo=F('product__photo'),
+        product_price=F('product__price'),
+        price_unit=F('product__price_unit'),
+        total_stock=F('product__total_stock'),
+        category_name=F('product__category__name'),
+        combination_price=F('product_variant_combination__price')
+    ).values(
+        'id', 'product_id', 'quantity', 'product_variant_combination_id',
+        'product_name', 'photo', 'product_price', 'price_unit',
+        'total_stock', 'category_name', 'combination_price'
+    ).order_by('id')
 
-    query = """
-        SELECT
-            ci.id,
-            ci.product_id,
-            ci.quantity,
-            ci.product_variant_combination_id,
-
-            p.name AS product_name,
-            p.photo,
-            p.price AS product_price,
-            p.price_unit,
-            p.total_stock,
-
-            c.name AS category_name,
-
-            pvc.price AS combination_price
-
-        FROM cart_items ci
-
-        JOIN products p
-            ON p.id = ci.product_id
-
-        LEFT JOIN categories c
-            ON c.id = p.category_id
-
-        LEFT JOIN product_variant_combinations pvc
-            ON pvc.id = ci.product_variant_combination_id
-
-        WHERE ci.cart_id = %s
-
-        ORDER BY ci.id ASC
-    """
-
-    results = dbFetch(query, [cartId], fetchAll=True)
-
-    items = []
-
-    for row in results:
-
-        items.append({
-            "id": row['id'],
-            "product_id": row['product_id'],
-            "quantity": row['quantity'],
-            "product_variant_combination_id": row['product_variant_combination_id'],
-            "product_name": row['product_name'],
-            "thumbnail": row['photo'],
-            "product_price": row['product_price'],
-            "price_unit": row['price_unit'],
-            "total_stock": row['total_stock'],
-            "category_name": row['category_name'],
-            "combination_price": row['combination_price']
+    # Convert to expected dictionary format
+    results = []
+    for item in items:
+        results.append({
+            "id": item['id'],
+            "product_id": item['product_id'],
+            "quantity": item['quantity'],
+            "product_variant_combination_id": item['product_variant_combination_id'],
+            "product_name": item['product_name'],
+            "thumbnail": item['photo'],
+            "product_price": item['product_price'],
+            "price_unit": item['price_unit'],
+            "total_stock": item['total_stock'],
+            "category_name": item['category_name'],
+            "combination_price": item['combination_price']
         })
 
-    return items
+    return results
 
 
 def getVariantCombinationDetail(combinationId):
+    # Fetch values ordered by variant type id
+    values = VariantOption.objects.filter(
+        productvariantcombinationoption__product_variant_combination_id=combinationId
+    ).order_by('variant_type_id').values_list('value', flat=True)
 
-    query = """
-        SELECT
-            vo.value
-
-        FROM product_variant_combination_options pvco
-
-        JOIN variant_options vo
-            ON vo.id = pvco.variant_option_id
-
-        JOIN variant_types vt
-            ON vt.id = vo.variant_type_id
-
-        WHERE pvco.product_variant_combination_id = %s
-
-        ORDER BY vt.id ASC
-    """
-
-    results = dbFetch(query, [combinationId], fetchAll=True)
-
-    return [row['value'] for row in results]
+    return list(values)
 
 
 def createCart(guestId, rentalStart, rentalEnd):
-    query = """
-        INSERT INTO carts (guest_id, rental_start, rental_end, created_at, updated_at)
-        VALUES (%s, %s, %s, NOW(), NOW())
-        RETURNING id
-    """
-    return dbExecute(query, [guestId, rentalStart, rentalEnd], returning=True)
+    cart = Cart.objects.create(
+        guest_id=guestId,
+        rental_start=rentalStart,
+        rental_end=rentalEnd
+    )
+    return {"id": cart.id}
 
 
 def updateCartRentalDates(cartId, rentalStart, rentalEnd):
-    query = """
-        UPDATE carts 
-        SET rental_start = %s, rental_end = %s, updated_at = NOW()
-        WHERE id = %s
-    """
-    dbExecute(query, [rentalStart, rentalEnd, cartId])
+    Cart.objects.filter(id=cartId).update(
+        rental_start=rentalStart, 
+        rental_end=rentalEnd,
+        updated_at=F('updated_at') # Standard update
+    )
+    # Manual update for updated_at if not handled by auto_now
+    from django.utils import timezone
+    Cart.objects.filter(id=cartId).update(updated_at=timezone.now())
 
 
 def getCartItem(cartId, productId, combinationId=None):
+    query = CartItem.objects.filter(cart_id=cartId, product_id=productId)
+    
     if combinationId:
-        query = """
-            SELECT id, quantity FROM cart_items
-            WHERE cart_id = %s AND product_id = %s AND product_variant_combination_id = %s
-        """
-        return dbFetch(query, [cartId, productId, combinationId])
+        query = query.filter(product_variant_combination_id=combinationId)
     else:
-        query = """
-            SELECT id, quantity FROM cart_items
-            WHERE cart_id = %s AND product_id = %s AND product_variant_combination_id IS NULL
-        """
-        return dbFetch(query, [cartId, productId])
+        query = query.filter(product_variant_combination_id__isnull=True)
+    
+    item = query.values('id', 'quantity').first()
+    return item
 
 
 def addCartItem(cartId, productId, combinationId, quantity):
-    query = """
-        INSERT INTO cart_items (cart_id, product_id, product_variant_combination_id, quantity, created_at)
-        VALUES (%s, %s, %s, %s, NOW())
-    """
-    dbExecute(query, [cartId, productId, combinationId, quantity])
+    CartItem.objects.create(
+        cart_id=cartId,
+        product_id=productId,
+        product_variant_combination_id=combinationId,
+        quantity=quantity
+    )
 
 
 def updateCartItemQuantity(cartItemId, newQuantity):
-    query = """
-        UPDATE cart_items SET quantity = %s WHERE id = %s
-    """
-    dbExecute(query, [newQuantity, cartItemId])
+    CartItem.objects.filter(id=cartItemId).update(quantity=newQuantity)
 
 
 def validateCartItemOwnership(cartItemId, guestId):
-    query = """
-        SELECT 1 FROM cart_items ci
-        JOIN carts c ON c.id = ci.cart_id
-        WHERE ci.id = %s AND c.guest_id = %s
-    """
-    result = dbFetch(query, [cartItemId, guestId])
-    return result is not None
+    return CartItem.objects.filter(id=cartItemId, cart__guest_id=guestId).exists()
 
 
 def deleteCartItem(cartItemId):
-    query = """
-        DELETE FROM cart_items WHERE id = %s
-    """
-    dbExecute(query, [cartItemId])
+    CartItem.objects.filter(id=cartItemId).delete()
 
 
 def clearCart(cartId):
-    queryItems = "DELETE FROM cart_items WHERE cart_id = %s"
-    queryCart = "DELETE FROM carts WHERE id = %s"
-    dbExecute(queryItems, [cartId])
-    dbExecute(queryCart, [cartId])
+    CartItem.objects.filter(cart_id=cartId).delete()
+    Cart.objects.filter(id=cartId).delete()
 
 
 def updateCartActivity(cartId):
-    query = "UPDATE carts SET updated_at = NOW() WHERE id = %s"
-    dbExecute(query, [cartId])
+    from django.utils import timezone
+    Cart.objects.filter(id=cartId).update(updated_at=timezone.now())
 
 
 def getExistingCategoriesRepo(cartId):
-    query = """
-        SELECT DISTINCT c.name
-        FROM cart_items ci
-        JOIN products p ON p.id = ci.product_id
-        JOIN categories c ON c.id = p.category_id
-        WHERE ci.cart_id = %s
-    """
-    results = dbFetch(query, [cartId], fetchAll=True) or []
-    return [row['name'] for row in results]
+    categories = CartItem.objects.filter(cart_id=cartId).values_list(
+        'product__category__name', flat=True
+    ).distinct()
+    return list(categories)
 
 
 def expireCartsRepo(hoursThreshold=24):
-    queryFind = "SELECT id FROM carts WHERE updated_at < NOW() - INTERVAL '%s HOURS'"
-    inactiveCarts = dbFetch(queryFind, [hoursThreshold], fetchAll=True) or []
+    from django.utils import timezone
+    from datetime import timedelta
     
-    if not inactiveCarts:
-        return 0
+    threshold_date = timezone.now() - timedelta(hours=hoursThreshold)
+    
+    inactive_carts = Cart.objects.filter(updated_at__lt=threshold_date)
+    count = inactive_carts.count()
+    
+    if count > 0:
+        cart_ids = list(inactive_carts.values_list('id', flat=True))
+        # CartItems will be deleted via CASCADE if configured in models, 
+        # but since we have managed=False and manual deletes in clearCart, 
+        # let's be explicit if needed. 
+        # Actually with managed=False Django won't enforce CASCADE at DB level 
+        # unless we do it here.
+        CartItem.objects.filter(cart_id__in=cart_ids).delete()
+        inactive_carts.delete()
         
-    cartIds = [c['id'] for c in inactiveCarts]
-    dbExecute("DELETE FROM cart_items WHERE cart_id = ANY(%s)", [cartIds])
-    dbExecute("DELETE FROM carts WHERE id = ANY(%s)", [cartIds])
-    
-    return len(cartIds)
+    return count
