@@ -66,3 +66,21 @@ class LogoutAPIView(APIView):
             return response
 
         return errorResponse(error, code=400)
+    
+class MeAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        return successResponse(
+            data={
+                "id": user.id,
+                "username": user.username,
+                "fullName": user.first_name + " " + user.last_name,
+                "groups": [
+                    group.name for group in user.groups.all()
+                ],
+            },
+            message="Data user berhasil diambil"
+        )
