@@ -1,6 +1,7 @@
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from utils.responses import successResponse, errorResponse
 from .serializers import LoginSerializer
@@ -17,7 +18,6 @@ class LoginAPIView(TokenObtainPairView):
 
         access_token = serializer.validated_data.get("access")
         refresh_token = serializer.validated_data.get("refresh")
-        user = serializer.validated_data.get("user")
 
         response = successResponse(
             message="Login berhasil"
@@ -42,8 +42,41 @@ class LoginAPIView(TokenObtainPairView):
         return response
 
 
-class RefreshTokenAPIView(TokenRefreshView):
+class RefreshTokenAPIView(APIView):
     permission_classes = [AllowAny]
+
+    def post(self, request):
+        refresh_token = request.COOKIES.get("refreshToken")
+
+        if not refresh_token:
+            return errorResponse(
+                "Refresh token is required",
+                code=401
+            )
+
+        try:
+            refresh = RefreshToken(refresh_token)
+            access_token = str(refresh.access_token)
+
+            response = successResponse(
+                message="Token refreshed"
+            )
+
+            response.set_cookie(
+                key="accessToken",
+                value=access_token,
+                httponly=True,
+                secure=False,
+                samesite="Lax",
+            )
+
+            return response
+
+        except Exception:
+            return errorResponse(
+                "Invalid refresh token",
+                code=401
+            )
 
 
 class LogoutAPIView(APIView):
