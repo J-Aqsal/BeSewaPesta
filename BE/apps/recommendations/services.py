@@ -182,13 +182,12 @@ def getCrossSellRecommendations(guestId):
         # Only add to recommendations if stock is available
         if availableStock > 0:
             recommendations.append({
-                "idProduct": prod['id'],
-                "productName": prod['name'],
-                "thumbnail": prod['photo'],
+                "id": prod['id'],
+                "name": prod['name'],
+                "image": prod['photo'],
                 "price": int(prod['price']) if prod['price'] is not None else 0,
                 "priceUnit": prod['price_unit'],
-                "availableStock": availableStock,
-                "similarityScore": round(item['score'], 4)
+                "stock": availableStock
             })
 
     return recommendations
