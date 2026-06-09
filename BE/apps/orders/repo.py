@@ -69,9 +69,6 @@ def getOrderItemsByOrderId(orderId):
 
 
 def getCombinationNameByOrderId(orderId):
-    # This one involves complex joins for variant names. 
-    # For now, we use a hybrid approach or simpler ORM query.
-    # To keep it clean and match the previous complex logic:
     from apps.products.models import ProductVariantCombinationOption
     
     options = ProductVariantCombinationOption.objects.filter(
