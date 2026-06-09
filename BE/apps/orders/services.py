@@ -197,7 +197,8 @@ def getAllOrders():
             "city": order["city"],
             "totalPrice": int(order["total_price"]),
             "status": order["status_name"],
-            "createdAt": order["created_at"].strftime('%Y-%m-%d %H:%M:%S') if order["created_at"] else None
+            "createdAt": order["created_at"].strftime('%Y-%m-%d %H:%M:%S') if order["created_at"] else None,
+            "updatedAt": order["updated_at"].strftime('%Y-%m-%d %H:%M:%S') if order["updated_at"] else None,
         })
     return formattedOrders
 
@@ -267,5 +268,6 @@ def getOrderDetail(orderId):
         "remainingPayment": int(remainingPayment),
         "status": order["status_name"],
         "createdAt": order["created_at"].strftime('%Y-%m-%d %H:%M:%S') if order["created_at"] else None,
+        "updatedAt": order["updated_at"].strftime('%Y-%m-%d %H:%M:%S') if order["updated_at"] else None,
         "items": formattedItems,
     }
