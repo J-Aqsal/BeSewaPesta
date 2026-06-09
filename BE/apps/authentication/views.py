@@ -44,6 +44,7 @@ class LoginAPIView(TokenObtainPairView):
 
 class RefreshTokenAPIView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         refresh_token = request.COOKIES.get("refreshToken")
@@ -78,9 +79,9 @@ class RefreshTokenAPIView(APIView):
                 code=401
             )
 
-
 class LogoutAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         refresh_token = request.COOKIES.get("refreshToken")
