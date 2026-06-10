@@ -20,7 +20,20 @@ from .repo import (
     expireCartsRepo
 )
 from apps.orders.repo import checkPendingOrderRepo
-from utils.dates import parse_datetime
+from utils.dates import parse_datetime, to_local_time
+
+def areDatesEqual(dbVal, inputVal):
+    if not dbVal or not inputVal:
+        return False
+    
+    dt1 = parse_datetime(dbVal)
+    dt2 = parse_datetime(inputVal)
+    
+    if not dt1 or not dt2:
+        return str(dbVal) == str(inputVal)
+        
+    return dt1.replace(microsecond=0) == dt2.replace(microsecond=0)
+
 
 def getCartDetailByGuestId(guestId):
     cart = getCartByGuestId(guestId)
@@ -31,8 +44,8 @@ def getCartDetailByGuestId(guestId):
     updateCartActivity(cart["id"])
 
     cartId = cart["id"]
-    rentalStart = cart["rental_start"]
-    rentalEnd = cart["rental_end"]
+    rentalStart = to_local_time(cart["rental_start"])
+    rentalEnd = to_local_time(cart["rental_end"])
     cartItems = getCartItemsByCartId(cartId)
     totalPrice = 0    
     items = []
@@ -75,16 +88,21 @@ def getCartDetailByGuestId(guestId):
             "variantCombination": variantCombination
         })
 
+    # Gunakan format ISO tanpa timezone (+07) untuk memudahkan FE
+    # Jika ingin mengembalikan format full dengan timezone, gunakan: rentalStart.isoformat()
+    formattedStart = rentalStart.strftime('%Y-%m-%dT%H:%M:%S') if rentalStart else None
+    formattedEnd = rentalEnd.strftime('%Y-%m-%dT%H:%M:%S') if rentalEnd else None
+
     return {
         "cartId": cartId,
         "totalPrice": totalPrice,
-        "rentalStart": rentalStart,
-        "rentalEnd": rentalEnd,
+        "rentalStart": formattedStart,
+        "rentalEnd": formattedEnd,
         "items": items
     }
 
 
-def addItemToCart(guestId, productId, combinationId, quantity, startDate, endDate):
+def addItemToCart(guestId, productId, combinationId, quantity, startDate=None, endDate=None):
     # Check for pending orders within the last 24 hours
     has_pending = checkPendingOrderRepo(guestId)
     if has_pending:
@@ -95,30 +113,29 @@ def addItemToCart(guestId, productId, combinationId, quantity, startDate, endDat
 
     cart = getCartByGuestId(guestId)
     
-    def areDatesEqual(dbVal, inputVal):
-        if not dbVal or not inputVal:
-            return False
-            
-        dt1 = parse_datetime(dbVal)
-        dt2 = parse_datetime(inputVal)
-        
-        if not dt1 or not dt2:
-            return str(dbVal) == str(inputVal)
-            
-        return dt1.replace(microsecond=0) == dt2.replace(microsecond=0)
-
     if cart:
         cartId = cart['id']
-        cartItems = getCartItemsByCartId(cartId)
-
-        if cartItems:
-            if not areDatesEqual(cart['rental_start'], startDate) or not areDatesEqual(cart['rental_end'], endDate):
-                return {"success": False, "message": "Please complete your current cart before changing rental dates."}
-
-        updateCartRentalDates(cartId, startDate, endDate)
+        if startDate and endDate:
+            cartItems = getCartItemsByCartId(cartId)
+            
+            if cartItems:
+                if not areDatesEqual(cart['rental_start'], startDate) or not areDatesEqual(cart['rental_end'], endDate):
+                    return {"success": False, "message": "Please complete your current cart before changing rental dates."}
+            
+            updateCartRentalDates(cartId, startDate, endDate)
+            effectiveStartDate = startDate
+            effectiveEndDate = endDate
+        else:
+            effectiveStartDate = cart['rental_start']
+            effectiveEndDate = cart['rental_end']
     else:
+        if not startDate or not endDate:
+            return {"success": False, "message": "Rental dates (startDate, endDate) are required for the first item."}
+        
         result = createCart(guestId, startDate, endDate)
         cartId = result['id']
+        effectiveStartDate = startDate
+        effectiveEndDate = endDate
 
 
     if combinationId:
@@ -126,10 +143,16 @@ def addItemToCart(guestId, productId, combinationId, quantity, startDate, endDat
         if not isValid:
             return {"success": False, "message": "Invalid variant combination for this product."}
         
-        stockMap = calculateAvailableStockForCombinations(productId, [combinationId], startDate, endDate)
-        availableStock = stockMap.get(combinationId, 0)
+        if effectiveStartDate and effectiveEndDate:
+            stockMap = calculateAvailableStockForCombinations(productId, [combinationId], effectiveStartDate, effectiveEndDate)
+            availableStock = stockMap.get(combinationId, 0)
+        else:
+            return {"success": False, "message": "Rental dates (startDate, endDate) are required."}
     else:
-        availableStock = calculateAvailableStock(productId, startDate, endDate)
+        if effectiveStartDate and effectiveEndDate:
+            availableStock = calculateAvailableStock(productId, effectiveStartDate, effectiveEndDate)
+        else:
+            return {"success": False, "message": "Rental dates (startDate, endDate) are required."}
 
     existingItem = getCartItem(cartId, productId, combinationId)
     
