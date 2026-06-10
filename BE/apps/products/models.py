@@ -20,8 +20,6 @@ class Product(models.Model):
     price_unit = models.CharField(max_length=20, blank=True, null=True)
     total_stock = models.IntegerField()
     category = models.ForeignKey(Category, on_delete=models.DO_NOTHING, related_name='products')
-    description_embedding = models.TextField(blank=True, null=True)
-    embedding_updated_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
