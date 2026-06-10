@@ -1,5 +1,6 @@
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
+from django.utils import timezone
 from django.db import transaction
 from apps.carts.services import getCartDetailByGuestId
 from apps.carts.repo import clearCart
@@ -12,7 +13,8 @@ from .repo import (
     getOrderItemsByOrderId, 
     getCombinationNameByOrderId, 
     updateOrderStatus,
-    getOrderStatusesRepo
+    getOrderStatusesRepo,
+    getOrderByGuestId
 )
 def calculateDurationDays(startDate, endDate):
     if not startDate or not endDate:
@@ -271,3 +273,35 @@ def getOrderDetail(orderId):
         "updatedAt": order["updated_at"].strftime('%Y-%m-%d %H:%M:%S') if order["updated_at"] else None,
         "items": formattedItems,
     }
+
+def checkoutDataService(guestId):
+    orderData = getOrderByGuestId(guestId)
+    order = orderData[0]
+    if not orderData:
+        return None
+    totalPrice = order['total_price']
+    shippingCost = order['shipping_cost']
+    totalDays = calculateDurationDays(order['rental_start'], order['rental_end'])
+    totalRentalAmount = totalPrice - shippingCost
+    from django.utils import timezone
+    print(order['created_at'])
+    print(order['created_at'].tzinfo)
+
+    createdAt = order['created_at'].replace(tzinfo=dt_timezone.utc)
+    paymentDeadline = timezone.localtime(
+        createdAt + timedelta(hours=24)
+    ).strftime('%Y-%m-%dT%H:%M:%S')
+    
+    if not orderData:
+        return None
+    formattedItems = []
+    for item in orderData:
+        formattedItems.append({
+            "orderId": item["order_id"],
+            "totalPrice": int(item["total_price"]),
+            "shippingCost": int(item["shipping_cost"]),
+            "totalDays": totalDays,
+            "totalRentalAmount": int(totalRentalAmount),
+            "paymentDeadline": paymentDeadline,
+        })
+    return formattedItems[0] if formattedItems else None

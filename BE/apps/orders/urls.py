@@ -4,7 +4,8 @@ from .views import (
     OrderDetailAPIView, 
     OrderShippingAPIView, 
     OrderSummaryAPIView, 
-    OrderStatusesAPIView
+    OrderStatusesAPIView,
+    OrderCheckoutAPIView
 )
 
 urlpatterns = [
@@ -13,4 +14,5 @@ urlpatterns = [
     path("shipping/", OrderShippingAPIView.as_view()),
     path("summary/", OrderSummaryAPIView.as_view()),
     path("statuses/", OrderStatusesAPIView.as_view()),
+    path("checkout-data/", OrderCheckoutAPIView.as_view()),
 ]
