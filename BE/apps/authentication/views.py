@@ -13,11 +13,10 @@ class LoginAPIView(TokenObtainPairView):
     permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        response_data = super().post(request, *args, **kwargs)
 
-        access_token = serializer.validated_data.get("access")
-        refresh_token = serializer.validated_data.get("refresh")
+        access_token = response_data.data.get("access")
+        refresh_token = response_data.data.get("refresh")
 
         response = successResponse(
             message="Login berhasil"
@@ -29,6 +28,7 @@ class LoginAPIView(TokenObtainPairView):
             httponly=True,
             secure=False,  # True kalau sudah HTTPS
             samesite="Lax",
+            path="/",
         )
 
         response.set_cookie(
@@ -37,6 +37,7 @@ class LoginAPIView(TokenObtainPairView):
             httponly=True,
             secure=False,  # True kalau sudah HTTPS
             samesite="Lax",
+            path="/",
         )
 
         return response
@@ -69,9 +70,11 @@ class RefreshTokenAPIView(APIView):
                 httponly=True,
                 secure=False,
                 samesite="Lax",
+                path="/",
             )
 
             return response
+
 
         except Exception:
             return errorResponse(
