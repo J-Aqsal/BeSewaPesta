@@ -14,6 +14,7 @@ from apps.orders.models import OrderItem, Order
 from django.db.models import F, Sum, Q, Case, When, Value, IntegerField, Count
 from django.db.models.functions import Coalesce, Cast
 from datetime import timedelta
+from utils.dates import parse_datetime
 
 
 def getProducts():
@@ -42,11 +43,8 @@ def calculateAvailableStock(productIds, startDate, endDate):
     if not productIds:
         return 0 if isSingleProduct else {}
 
-    from datetime import datetime
-    if isinstance(startDate, str):
-        startDate = datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
-    if isinstance(endDate, str):
-        endDate = datetime.strptime(endDate, '%Y-%m-%d %H:%M:%S')
+    startDate = parse_datetime(startDate)
+    endDate = parse_datetime(endDate)
 
     productsWithVariant = set(ProductVariantCombination.objects.filter(
         product_id__in=productIds
@@ -108,11 +106,8 @@ def calculateAvailableStockForCombinations(productId, combinationIds, startDate,
     if not combinationIds:
         return {}
 
-    from datetime import datetime
-    if isinstance(startDate, str):
-        startDate = datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
-    if isinstance(endDate, str):
-        endDate = datetime.strptime(endDate, '%Y-%m-%d %H:%M:%S')
+    startDate = parse_datetime(startDate)
+    endDate = parse_datetime(endDate)
 
     # Total Stock
     totalStocks = ProductVariantCombination.objects.filter(

@@ -20,6 +20,7 @@ from .repo import (
     expireCartsRepo
 )
 from apps.orders.repo import checkPendingOrderRepo
+from utils.dates import parse_datetime
 
 def getCartDetailByGuestId(guestId):
     cart = getCartByGuestId(guestId)
@@ -97,27 +98,14 @@ def addItemToCart(guestId, productId, combinationId, quantity, startDate, endDat
     def areDatesEqual(dbVal, inputVal):
         if not dbVal or not inputVal:
             return False
-        try:
-            from datetime import datetime
-            formats = ['%Y-%m-%d %H:%M:%S', '%Y-%m-%d %H:%M', '%Y-%m-%d']
-            inputDt = None
-            for fmt in formats:
-                try:
-                    inputDt = datetime.strptime(inputVal.split('.')[0], fmt)
-                    break
-                except:
-                    continue
-
-            if not inputDt:
-                return str(dbVal) == str(inputVal)
-
-            dbDt = dbVal if isinstance(dbVal, datetime) else None
-            if dbDt:
-                return dbDt.replace(microsecond=0) == inputDt
-
-            return str(dbVal) == str(inputDt)
-        except:
+            
+        dt1 = parse_datetime(dbVal)
+        dt2 = parse_datetime(inputVal)
+        
+        if not dt1 or not dt2:
             return str(dbVal) == str(inputVal)
+            
+        return dt1.replace(microsecond=0) == dt2.replace(microsecond=0)
 
     if cart:
         cartId = cart['id']

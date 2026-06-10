@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from django.db import transaction
 from apps.carts.services import getCartDetailByGuestId
 from apps.carts.repo import clearCart
+from utils.dates import parse_datetime
 from .repo import (
     insertOrder, 
     insertOrderItem, 
@@ -17,10 +18,11 @@ def calculateDurationDays(startDate, endDate):
     if not startDate or not endDate:
         return 1
     
-    if isinstance(startDate, str):
-        startDate = datetime.strptime(startDate, '%Y-%m-%d %H:%M:%S')
-    if isinstance(endDate, str):
-        endDate = datetime.strptime(endDate, '%Y-%m-%d %H:%M:%S')
+    startDate = parse_datetime(startDate)
+    endDate = parse_datetime(endDate)
+    
+    if not startDate or not endDate:
+        return 1
         
     diff = endDate - startDate
     seconds = diff.total_seconds()
