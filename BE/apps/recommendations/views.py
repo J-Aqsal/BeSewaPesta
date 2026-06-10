@@ -1,10 +1,12 @@
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 from .services import getUpsellingRecommendations, getCrossSellRecommendations
 from utils.responses import successResponse, errorResponse
 from utils.constants import BAD_REQUEST_CODE
 
 
 class UpSellAPIView(APIView):
+    permission_classes = [AllowAny]
 
     def get(self, request):
         """
@@ -36,6 +38,7 @@ class UpSellAPIView(APIView):
 
 
 class CrossSellAPIView(APIView):
+    permission_classes = [AllowAny]
 
     def get(self, request):
         """

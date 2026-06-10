@@ -1,4 +1,4 @@
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.views import APIView
 from apps.authentication.permissions import IsAdminOrSuperAdmin
 from apps.carts.services import getCartDetailByGuestId
@@ -25,7 +25,7 @@ class OrderAPIView(APIView):
     
     def get_permissions(self):
         if self.request.method == 'POST':
-            return []
+            return [AllowAny()]
         return [IsAuthenticated(), IsAdminOrSuperAdmin()]
 
     def get(self, request):
@@ -88,6 +88,7 @@ class OrderDetailAPIView(APIView):
 
 
 class OrderShippingAPIView(APIView):
+    permission_classes = [AllowAny]
     """
     Calculate shipping cost based on city
     """
@@ -107,6 +108,7 @@ class OrderShippingAPIView(APIView):
 
 
 class OrderSummaryAPIView(APIView):
+    permission_classes = [AllowAny]
     """
     Calculate rental summary (days, total, DP)
     """
