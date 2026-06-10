@@ -244,7 +244,9 @@ def getProductFeatures(productId):
 def getProductCategoryCandidates(excludedCategoryIds):
     return list(Product.objects.exclude(
         category_id__in=excludedCategoryIds
-    ).values('id', 'name', 'photo', 'price', 'price_unit', 'total_stock', 'category_id'))
+    ).annotate(
+        category_name=F('category__name')
+    ).values('id', 'name', 'photo', 'price', 'price_unit', 'total_stock', 'category_id', 'category_name'))
 
 
 def getAllProductFeatures(productIds):

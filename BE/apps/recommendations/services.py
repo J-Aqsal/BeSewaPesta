@@ -5,7 +5,9 @@ from apps.products.repo import (
     getProductCategoryCandidates,
     getProductCategoryInfo,
     getCombinationVariantDetails,
-    getSimilarCombinationsWithHigherPrice
+    getSimilarCombinationsWithHigherPrice,
+    getVariantCombinations,
+    calculatePriceRange
 )
 from apps.carts.repo import getCartItemsByCartId, getCartByGuestId
 from .repo import getProductUpsellRelations
@@ -175,6 +177,10 @@ def getCrossSellRecommendations(guestId):
     scoredCandidates.sort(key=lambda x: x['score'], reverse=True)
 
     recommendations = []
+    # Ambil IDs untuk fetch harga varian secara bulk
+    candidateIds = [item['product']['id'] for item in scoredCandidates[:20]]
+    priceMap = getVariantCombinations(candidateIds, startDate, endDate)
+
     for item in scoredCandidates:
         if len(recommendations) >= 5:
             break
@@ -184,11 +190,17 @@ def getCrossSellRecommendations(guestId):
         
         # Only add to recommendations if stock is available
         if availableStock > 0:
+            variantPrices = priceMap.get(prod['id'], [])
+            priceRange = calculatePriceRange(prod['price'], variantPrices)
+
             recommendations.append({
                 "id": prod['id'],
                 "name": prod['name'],
+                "category": prod.get('category_name'),
                 "image": prod['photo'],
-                "price": int(prod['price']) if prod['price'] is not None else 0,
+                "isAvailable": True,
+                "minPrice": int(priceRange['min']),
+                "maxPrice": int(priceRange['max']),
                 "priceUnit": prod['price_unit'],
                 "stock": availableStock
             })
