@@ -113,3 +113,16 @@ def cancelExpiredOrdersRepo(hoursThreshold=24):
         updated_at=timezone.now()
     )
     return updated_count
+
+def getOrderByGuestId(guestId):
+    order = Order.objects.select_related('status').filter(guest_id=guestId).annotate(
+        order_id=F('id'),
+        status_name=F('status__name')
+    ).values(
+        'order_id', 'guest_id', 'total_price', 'rental_start', 'rental_end',
+        'recipient_name', 'phone_number', 'shipping_address', 'city',
+        'shipping_cost', 'created_at', 'status_name', 'updated_at'
+    )
+    
+    return list(order)
+

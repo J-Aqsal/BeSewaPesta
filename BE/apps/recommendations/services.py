@@ -19,8 +19,11 @@ def getUpsellingRecommendations(productId, variantId=None, startDate=None, endDa
     except (ValueError, TypeError):
         quantity = 1
 
-    if variantId:
+    manualRelations = getProductUpsellRelations(productId)
+    if manualRelations:
+        return _get_product_upsell_recursive(productId, startDate, endDate, quantity, visited=set())
 
+    if variantId:
         variantDetails = getCombinationVariantDetails(variantId)
         if not variantDetails:
             return []
