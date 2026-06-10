@@ -1,4 +1,5 @@
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 from .services import (
     getCartDetailByGuestId, 
     addItemToCart, 
@@ -10,6 +11,7 @@ from utils.constants import BAD_REQUEST_CODE, NOT_FOUND_CODE
 
 
 class CartAPIView(APIView):
+    permission_classes = [AllowAny]
     """
     Consolidated Cart API View
     GET: Get cart details

@@ -1,4 +1,5 @@
 from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
 from utils.responses import successResponse, errorResponse
 from utils.constants import BAD_REQUEST_CODE, NOT_FOUND_CODE
 
@@ -8,6 +9,7 @@ from .services import (
 )
 
 class ProductListAPIView(APIView):
+    permission_classes = [AllowAny]
 
     def post(self, request):
 
@@ -25,6 +27,8 @@ class ProductListAPIView(APIView):
         return successResponse(data=products)
     
 class ProductDetailAPIView(APIView):
+    permission_classes = [AllowAny]
+
     def post(self, request):
         product_id = request.data.get("idProduct")
         start_date = request.data.get("startDate")
