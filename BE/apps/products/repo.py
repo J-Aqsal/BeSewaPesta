@@ -48,12 +48,10 @@ def calculateAvailableStock(productIds, startDate, endDate):
     if isinstance(endDate, str):
         endDate = datetime.strptime(endDate, '%Y-%m-%d %H:%M:%S')
 
-    # 1. Identify products with variants
     productsWithVariant = set(ProductVariantCombination.objects.filter(
         product_id__in=productIds
     ).values_list('product_id', flat=True).distinct())
 
-    # 2. Get total stock for each product
     totalStocks = Product.objects.filter(id__in=productIds).annotate(
         product_total_stock=Coalesce('total_stock', 0),
         variant_total_stock=Coalesce(Sum('variant_combinations__stock'), 0)
@@ -66,9 +64,6 @@ def calculateAvailableStock(productIds, startDate, endDate):
         } for row in totalStocks
     }
 
-    # 3. Calculate used stock from orders
-    # rental_start < endDate AND ( (status in PENDING, DP, PAID AND rental_end > startDate) OR (status COMPLETED AND rental_end + 24h > startDate) )
-    # Note: INTERVAL '24 HOURS' in ORM
     usedStockRows = OrderItem.objects.filter(
         product_id__in=productIds,
         order__rental_start__lt=endDate
@@ -213,14 +208,12 @@ def getVariantCombinations(productId, startDate, endDate):
     for g in galleries:
         galMap.setdefault(g.product_variant_combination_id, []).append(g.image_url)
 
-    # Stock
     stockMap = calculateAvailableStockForCombinations(productId, comb_ids, startDate, endDate)
 
     combinationsData = []
     priceValues = []
     
     for c in combinations:
-        # Get variants and option IDs
         opts = c.combination_options.all().order_by('variant_option__variant_type__name')
         v_names = [o.variant_option.value for o in opts]
         v_ids = [o.variant_option_id for o in opts]
@@ -284,20 +277,17 @@ def getCombinationVariantDetails(combinationId):
 
 def getSimilarCombinationsWithHigherPrice(productId, currentPrice, upsellDimensionTypeId, currentUpsellOptionId, fixedOptionIds):
 
-    # Base Query: Combinations of same product with higher price
     query = ProductVariantCombination.objects.filter(
         product_id=productId,
         price__gt=currentPrice
     )
 
-    # Constraint: Must have a different option in the upsell dimension
     query = query.filter(
         combination_options__variant_option__variant_type_id=upsellDimensionTypeId
     ).exclude(
         combination_options__variant_option_id=currentUpsellOptionId
     )
 
-    # Constraint: Must have all fixed options
     for opt_id in fixedOptionIds:
         query = query.filter(combination_options__variant_option_id=opt_id)
 

@@ -114,7 +114,7 @@ def processCheckout(guestId, recipientName, phoneNumber, shippingAddress, city):
 
     try:
         with transaction.atomic():
-            # 1. Create Order
+            
             order = insertOrder(
                 guestId=guestId,
                 totalPrice=finalTotalPrice,
@@ -129,7 +129,6 @@ def processCheckout(guestId, recipientName, phoneNumber, shippingAddress, city):
             )
             orderId = order['id']
 
-            # 2. Move items to Order Items
             for item in cartData['items']:
                 combinationId = None
                 if item['variantCombination']:
@@ -143,7 +142,6 @@ def processCheckout(guestId, recipientName, phoneNumber, shippingAddress, city):
                     combinationId=combinationId
                 )
 
-            # 3. Clear Cart
             clearCart(cartData['cartId'])
 
         return {
