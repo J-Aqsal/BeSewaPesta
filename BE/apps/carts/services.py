@@ -19,6 +19,7 @@ from .repo import (
     getExistingCategoriesRepo,
     expireCartsRepo
 )
+from apps.orders.repo import checkPendingOrderRepo
 
 def getCartDetailByGuestId(guestId):
     cart = getCartByGuestId(guestId)
@@ -83,6 +84,14 @@ def getCartDetailByGuestId(guestId):
 
 
 def addItemToCart(guestId, productId, combinationId, quantity, startDate, endDate):
+    # Check for pending orders within the last 24 hours
+    has_pending = checkPendingOrderRepo(guestId)
+    if has_pending:
+        return {
+            "success": False, 
+            "message": "You have a pending order waiting for payment. Please complete it before adding more items to your cart."
+        }
+
     cart = getCartByGuestId(guestId)
     
     def areDatesEqual(dbVal, inputVal):

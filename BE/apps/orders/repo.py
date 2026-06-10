@@ -1,6 +1,7 @@
 from .models import Order, OrderItem, OrderStatus
 from django.db.models import F
 from django.utils import timezone
+from datetime import timedelta
 
 
 def insertOrder(guestId, totalPrice, statusId, rentalStart, rentalEnd, recipientName, phoneNumber, shippingAddress, city, shippingCost):
@@ -91,3 +92,24 @@ def updateOrderStatus(orderId, newStatusId):
 
 def getOrderStatusesRepo():
     return list(OrderStatus.objects.all().values('id', 'name').order_by('id'))
+
+
+def checkPendingOrderRepo(guestId):
+    twenty_four_hours_ago = timezone.now() - timedelta(hours=24)
+    return Order.objects.filter(
+        guest_id=guestId,
+        status_id=1,  # Pending Payment
+        created_at__gte=twenty_four_hours_ago
+    ).exists()
+
+
+def cancelExpiredOrdersRepo(hoursThreshold=24):
+    cutoff_time = timezone.now() - timedelta(hours=hoursThreshold)
+    updated_count = Order.objects.filter(
+        status_id=1,  # Pending Payment
+        created_at__lte=cutoff_time
+    ).update(
+        status_id=5,  # Cancelled
+        updated_at=timezone.now()
+    )
+    return updated_count
