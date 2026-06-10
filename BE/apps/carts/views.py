@@ -6,6 +6,7 @@ from .services import (
     removeItemFromCart,
     updateItemQuantityService
 )
+from apps.orders.repo import checkPendingOrderRepo
 from utils.responses import successResponse, errorResponse
 from utils.constants import BAD_REQUEST_CODE, NOT_FOUND_CODE
 
@@ -27,6 +28,12 @@ class CartAPIView(APIView):
         if not guestId:
             return errorResponse(
                 message="guestId is required",
+                code=BAD_REQUEST_CODE
+            )
+
+        if checkPendingOrderRepo(guestId):
+            return errorResponse(
+                message="You have a pending order waiting for payment. Please complete it first.",
                 code=BAD_REQUEST_CODE
             )
 
