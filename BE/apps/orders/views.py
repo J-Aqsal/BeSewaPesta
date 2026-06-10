@@ -9,7 +9,8 @@ from .services import (
     getAllOrders, 
     getOrderDetail,
     updateOrderStatusService,
-    getOrderStatusesService
+    getOrderStatusesService,
+    checkoutDataService
 )
 from utils.responses import successResponse, errorResponse
 from utils.constants import BAD_REQUEST_CODE
@@ -134,3 +135,19 @@ class OrderStatusesAPIView(APIView):
     def get(self, request):
         statuses = getOrderStatusesService()
         return successResponse(data=statuses)
+
+class OrderCheckoutAPIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        guestId = request.query_params.get("guestId")
+        
+        if not guestId:
+            return errorResponse(message="guestId is required", code=BAD_REQUEST_CODE)
+
+        orderData = checkoutDataService(guestId)
+        
+        if not orderData:
+            return errorResponse(message="Order not found")
+
+        return successResponse(data=orderData)
