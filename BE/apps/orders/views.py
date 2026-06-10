@@ -24,7 +24,6 @@ class OrderAPIView(APIView):
     """
     
     def get_permissions(self):
-        # Checkout (POST) can be accessed by guests, other methods require Admin/Super Admin
         if self.request.method == 'POST':
             return []
         return [IsAuthenticated(), IsAdminOrSuperAdmin()]
