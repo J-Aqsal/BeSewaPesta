@@ -9,6 +9,16 @@ from .repo import (
     getVariantTypes,
 )
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
+def getFullImageUrl(path):
+    if not path:
+        return None
+    base_url = os.getenv("AZURE_STORAGE_URL", "")
+    return f"{base_url}{path}"
+
 def getProductCatalogData(start_date, end_date):
     catalog = []
     products = getProducts()
@@ -26,7 +36,7 @@ def getProductCatalogData(start_date, end_date):
         start_date,
         end_date,
     )
-
+    
     for product in products:
         priceRange = calculatePriceRange(product["price"], priceValuesMap.get(product["id"], []))
         stock = stockMap.get(product["id"], 0)
@@ -35,7 +45,7 @@ def getProductCatalogData(start_date, end_date):
                 "id": product["id"],
                 "name": product["name"],
                 "category": product["category_name"],
-                "image": product["photo"],
+                "image": getFullImageUrl(product['photo']),
                 "isAvailable": stock > 0,
                 "minPrice": priceRange["min"],
                 "maxPrice": priceRange["max"],
@@ -60,6 +70,12 @@ def getProductDetailData(product_id, start_date, end_date):
         end_date,
     )
 
+    galleries = [getFullImageUrl(g) for g in getProductGalleries(product_id)]
+    
+    for vc in variantCombinations:
+        if vc.get("gallery"):
+            vc["gallery"] = [getFullImageUrl(g) for g in vc["gallery"]]
+
     return {
         "idProduct": product["id"],
         "productName": product["name"],
@@ -72,8 +88,8 @@ def getProductDetailData(product_id, start_date, end_date):
             start_date,
             end_date,
         ),
-        "thumbnail": product["photo"],
-        "gallery": getProductGalleries(product_id),
+        "thumbnail": getFullImageUrl(product['photo']),
+        "gallery": galleries,
         "variantTypes": variantTypes,
         "variantCombinations": variantCombinations,
         "specifications": getProductSpecifications(product_id),

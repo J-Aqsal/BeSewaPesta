@@ -10,7 +10,6 @@ class Cart(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        managed = False
         db_table = 'carts'
 
     def __str__(self):
@@ -30,7 +29,6 @@ class CartItem(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
         db_table = 'cart_items'
 
     def __str__(self):

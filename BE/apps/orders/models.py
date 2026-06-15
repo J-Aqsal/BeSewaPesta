@@ -7,7 +7,6 @@ class OrderStatus(models.Model):
     name = models.CharField(max_length=100)
 
     class Meta:
-        managed = False
         db_table = 'order_statuses'
 
     def __str__(self):
@@ -29,7 +28,6 @@ class Order(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        managed = False
         db_table = 'orders'
 
     def __str__(self):
@@ -49,7 +47,6 @@ class OrderItem(models.Model):
     price = models.DecimalField(max_digits=12, decimal_places=2)
 
     class Meta:
-        managed = False
         db_table = 'order_items'
 
     def __str__(self):
