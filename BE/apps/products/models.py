@@ -5,7 +5,6 @@ class Category(models.Model):
     name = models.CharField(unique=True, max_length=100)
 
     class Meta:
-        managed = False
         db_table = 'categories'
 
     def __str__(self):
@@ -24,7 +23,6 @@ class Product(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        managed = False
         db_table = 'products'
 
     def __str__(self):
@@ -39,7 +37,6 @@ class ProductGallery(models.Model):
     product_variant_combination = models.ForeignKey('ProductVariantCombination', on_delete=models.DO_NOTHING, blank=True, null=True)
 
     class Meta:
-        managed = False
         db_table = 'product_galleries'
 
 
@@ -48,7 +45,6 @@ class ProductSpecification(models.Model):
     specification = models.TextField()
 
     class Meta:
-        managed = False
         db_table = 'product_specifications'
 
 
@@ -60,7 +56,6 @@ class VariantType(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
         db_table = 'variant_types'
         unique_together = (('product', 'name'),)
 
@@ -75,7 +70,6 @@ class VariantOption(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
         db_table = 'variant_options'
         unique_together = (('variant_type', 'value'),)
 
@@ -90,7 +84,6 @@ class ProductVariantCombination(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
         db_table = 'product_variant_combinations'
 
 
@@ -99,7 +92,6 @@ class ProductVariantCombinationOption(models.Model):
     variant_option = models.ForeignKey(VariantOption, on_delete=models.DO_NOTHING)
 
     class Meta:
-        managed = False
         db_table = 'product_variant_combination_options'
 
 
@@ -110,7 +102,6 @@ class Tag(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = False
         db_table = 'tags'
 
     def __str__(self):
@@ -123,7 +114,6 @@ class ProductTag(models.Model):
     weight = models.FloatField(default=0.0)
 
     class Meta:
-        managed = False
         db_table = 'product_tags'
         unique_together = (('product', 'tag'),)
 
@@ -137,7 +127,6 @@ class UpsellRelation(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        managed = False
         db_table = 'upsell_relations'
 
 
@@ -146,5 +135,4 @@ class ProductUpsellRelation(models.Model):
     target_product = models.ForeignKey(Product, on_delete=models.DO_NOTHING, related_name='product_upsell_targets')
 
     class Meta:
-        managed = False
         db_table = 'product_upsell_relations'
