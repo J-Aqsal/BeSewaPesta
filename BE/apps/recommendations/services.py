@@ -9,8 +9,9 @@ from apps.products.repo import (
     getVariantCombinations,
     calculatePriceRange
 )
-from apps.carts.repo import getCartItemsByCartId, getCartByGuestId
+from apps.carts.repo import getCartItemsByCartId, getCartByGuestId, getVariantCombinationDetail
 from .repo import getProductUpsellRelations
+from apps.products.services import getFullImageUrl
 
 def getUpsellingRecommendations(productId, variantId=None, startDate=None, endDate=None, quantity=1, isFromRecommendation=False):
     if isFromRecommendation:
@@ -23,7 +24,7 @@ def getUpsellingRecommendations(productId, variantId=None, startDate=None, endDa
 
     manualRelations = getProductUpsellRelations(productId)
     if manualRelations:
-        return _get_product_upsell_recursive(productId, startDate, endDate, quantity, visited=set())
+        return getProductUpsellRecursive(productId, startDate, endDate, quantity, visited=set())
 
     if variantId:
         variantDetails = getCombinationVariantDetails(variantId)
@@ -55,41 +56,46 @@ def getUpsellingRecommendations(productId, variantId=None, startDate=None, endDa
             fixedOptionIds
         )
         
-        recommendations = []
         for combo in upsellCombinations:
             stockMap = calculateAvailableStockForCombinations(actualProductId, [combo['id']], startDate, endDate)
             availableStock = stockMap.get(combo['id'], 0)
             
             if availableStock >= quantity:
-                recommendations.append({
+                combinationId = combo['id']
+                variants = getVariantCombinationDetail(combinationId)
+                variantCombination = {
+                    "idVariantCombination": combinationId,
+                    "variants": variants
+                }
+                
+                return [{
                     "idUpsell": combo['id'],
                     "idProduct": actualProductId,
                     "productName": combo['product_name'],
-                    "thumbnail": combo['product_photo'],
+                    "thumbnail": getFullImageUrl(combo['product_photo']),
                     "price": int(combo['price']) if combo['price'] is not None else 0,
                     "priceUnit": combo['price_unit'],
                     "availableStock": availableStock,
-                    "idVariantCombination": combo['id']
-                })
-        return recommendations
+                    "variantCombination": variantCombination
+                }]
+        return []
 
     else:        
-        return _get_product_upsell_recursive(productId, startDate, endDate, quantity, visited=set())
+        return getProductUpsellRecursive(productId, startDate, endDate, quantity, visited=set())
 
-def _get_product_upsell_recursive(productId, startDate, endDate, quantity, visited):
+def getProductUpsellRecursive(productId, startDate, endDate, quantity, visited):
     if productId in visited:
         return []
     visited.add(productId)
 
     relations = getProductUpsellRelations(productId)
-    recommendations = []
 
     for rel in relations:
         targetProductId = rel['target_product_id']
         availableStock = calculateAvailableStock(targetProductId, startDate, endDate)
         
         if availableStock >= quantity:
-            recommendations.append({
+            return [{
                 "idUpsell": rel['id'],
                 "idProduct": targetProductId,
                 "productName": rel['product_name'],
@@ -97,13 +103,14 @@ def _get_product_upsell_recursive(productId, startDate, endDate, quantity, visit
                 "price": int(rel['product_price']) if rel['product_price'] is not None else 0,
                 "priceUnit": rel['price_unit'],
                 "availableStock": availableStock,
-                "idVariantCombination": None
-            })
+                "variantCombination": None
+            }]
         else:
-            fallback_recs = _get_product_upsell_recursive(targetProductId, startDate, endDate, quantity, visited)
-            recommendations.extend(fallback_recs)
+            fallback_recs = getProductUpsellRecursive(targetProductId, startDate, endDate, quantity, visited)
+            if fallback_recs:
+                return fallback_recs
 
-    return recommendations
+    return []
 
 
 def calculateWeightedJaccard(features1, features2):
