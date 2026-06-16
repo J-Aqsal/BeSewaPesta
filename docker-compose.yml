@@ -6,7 +6,7 @@ services:
     ports:
       - "8000:8000"
     env_file:
-      - BE/.env
+      - .env
     # Volumes used for local development to sync code changes
     volumes:
       - .:/app
