@@ -1,6 +1,6 @@
 from .models import Cart, CartItem
-from apps.products.models import Product, ProductVariantCombination, VariantOption
-from django.db.models import F
+from apps.products.models import Product, ProductVariantCombination, VariantOption, ProductGallery
+from django.db.models import F, OuterRef, Subquery
 import uuid
 
 
@@ -20,11 +20,15 @@ def getCartByGuestId(guestId):
 
 
 def getCartItemsByCartId(cartId):
+    first_gallery = ProductGallery.objects.filter(
+        product_id=OuterRef('product_id')
+    ).order_by('display_order', 'id')
+
     items = CartItem.objects.filter(cart_id=cartId).select_related(
         'product', 'product__category', 'product_variant_combination'
     ).annotate(
         product_name=F('product__name'),
-        photo=F('product__photo'),
+        photo=Subquery(first_gallery.values('image_url')[:1]),
         product_price=F('product__price'),
         price_unit=F('product__price_unit'),
         total_stock=F('product__total_stock'),

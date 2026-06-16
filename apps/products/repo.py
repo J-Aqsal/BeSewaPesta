@@ -11,20 +11,39 @@ from .models import (
     Tag
 )
 from apps.orders.models import OrderItem, Order
-from django.db.models import F, Sum, Q, Case, When, Value, IntegerField, Count
+from django.db.models import F, Sum, Q, Case, When, Value, IntegerField, Count, OuterRef, Subquery
 from django.db.models.functions import Coalesce, Cast
 from datetime import timedelta
 from utils.dates import parse_datetime
 
 
 def getProducts():
-    return list(Product.objects.all().annotate(category_name=F('category__name')).values('id', 'name', 'photo', 'price', 'price_unit', 'total_stock', 'category_name').order_by('id'))
+    first_gallery = ProductGallery.objects.filter(
+        product_id=OuterRef('id')
+    ).order_by('display_order', 'id')
+    products = list(Product.objects.all().annotate(
+        category_name=F('category__name'),
+        thumbnail=Subquery(first_gallery.values('image_url')[:1])
+    ).values('id', 'name', 'thumbnail', 'price', 'price_unit', 'total_stock', 'category_name').order_by('id'))
+    
+    for p in products:
+        p['photo'] = p.pop('thumbnail', None)
+    return products
 
 
 def getProductById(productId):
-    product = Product.objects.filter(id=productId).annotate(category_name=F('category__name')).values(
-        'id', 'name', 'photo', 'description', 'price', 'price_unit', 'total_stock', 'category_name'
+    first_gallery = ProductGallery.objects.filter(
+        product_id=OuterRef('id')
+    ).order_by('display_order', 'id')
+    product = Product.objects.filter(id=productId).annotate(
+        category_name=F('category__name'),
+        thumbnail=Subquery(first_gallery.values('image_url')[:1])
+    ).values(
+        'id', 'name', 'thumbnail', 'description', 'price', 'price_unit', 'total_stock', 'category_name'
     ).first()
+    
+    if product:
+        product['photo'] = product.pop('thumbnail', None)
     return product
 
 def calculatePriceRange(productPrice, pricesList):
@@ -141,7 +160,7 @@ def calculateAvailableStockForCombinations(productId, combinationIds, startDate,
 
 def getProductGalleries(productId):
     return list(ProductGallery.objects.filter(
-        product_id=productId, product_variant_combination_id__isnull=True
+        product_id=productId
     ).order_by('display_order', 'id').values_list('image_url', flat=True))
 
 
@@ -242,11 +261,19 @@ def getProductFeatures(productId):
 
 
 def getProductCategoryCandidates(excludedCategoryIds):
-    return list(Product.objects.exclude(
+    first_gallery = ProductGallery.objects.filter(
+        product_id=OuterRef('id')
+    ).order_by('display_order', 'id')
+    products = list(Product.objects.exclude(
         category_id__in=excludedCategoryIds
     ).annotate(
-        category_name=F('category__name')
-    ).values('id', 'name', 'photo', 'price', 'price_unit', 'total_stock', 'category_id', 'category_name'))
+        category_name=F('category__name'),
+        thumbnail=Subquery(first_gallery.values('image_url')[:1])
+    ).values('id', 'name', 'thumbnail', 'price', 'price_unit', 'total_stock', 'category_id', 'category_name'))
+
+    for p in products:
+        p['photo'] = p.pop('thumbnail', None)
+    return products
 
 
 def getAllProductFeatures(productIds):
@@ -288,9 +315,13 @@ def getSimilarCombinationsWithHigherPrice(productId, currentPrice, upsellDimensi
     for opt_id in fixedOptionIds:
         query = query.filter(combination_options__variant_option_id=opt_id)
 
+    first_gallery = ProductGallery.objects.filter(
+        product_id=OuterRef('product_id')
+    ).order_by('display_order', 'id')
+
     results = query.select_related('product').annotate(
         product_name=F('product__name'),
-        product_photo=F('product__photo'),
+        product_photo=Subquery(first_gallery.values('image_url')[:1]),
         product_price_unit=F('product__price_unit')
     ).values(
         'id', 'price', 'stock', 'product_name', 'product_photo', 'product_price_unit'

@@ -1,5 +1,5 @@
 from .models import Order, OrderItem, OrderStatus
-from django.db.models import F
+from django.db.models import F, OuterRef, Subquery
 from django.utils import timezone
 from datetime import timedelta
 
@@ -57,11 +57,17 @@ def getOrderByOrderId(orderId):
 
 
 def getOrderItemsByOrderId(orderId):
+    from apps.products.models import ProductGallery
+
+    first_gallery = ProductGallery.objects.filter(
+        product_id=OuterRef('product_id')
+    ).order_by('display_order', 'id')
+
     items = OrderItem.objects.filter(order_id=orderId).select_related('product', 'product__category').annotate(
         order_item_id=F('id'),
         product_name=F('product__name'),
         category_name=F('product__category__name'),
-        thumbnail=F('product__photo')
+        thumbnail=Subquery(first_gallery.values('image_url')[:1])
     ).values(
         'order_item_id', 'product_id', 'product_name', 'quantity', 'price',
         'product_variant_combination_id', 'category_name', 'thumbnail'
