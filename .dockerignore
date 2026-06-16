@@ -3,7 +3,7 @@
 **/venv
 **/.git
 **/.vscode
-BE/db.sqlite3
+db.sqlite3
 .env
 Dockerfile
 docker-compose.yml
