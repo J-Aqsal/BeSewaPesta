@@ -21,6 +21,7 @@ from .repo import (
 )
 from apps.orders.repo import checkPendingOrderRepo
 from utils.dates import parse_datetime, to_local_time
+from apps.products.services import getFullImageUrl
 
 def areDatesEqual(dbVal, inputVal):
     if not dbVal or not inputVal:
@@ -79,7 +80,7 @@ def getCartDetailByGuestId(guestId):
             "idProduct": productId,
             "productName": item["product_name"],
             "category": item["category_name"],
-            "thumbnail": item["thumbnail"],
+            "thumbnail": getFullImageUrl(item["thumbnail"]),
             "quantity": quantity,
             "availableStock": availableStock,
             "unitPrice": item["price_unit"],
