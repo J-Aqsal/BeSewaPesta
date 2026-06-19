@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'apps.recommendations',
     'apps.authentication',
     'rest_framework_simplejwt.token_blacklist',
+    'django_crontab',
 ]
 
 MIDDLEWARE = [
@@ -152,3 +153,9 @@ SIMPLE_JWT = {
     "CHECK_USER_IS_ACTIVE": True,
     # kemungkinan tambah rotate dan blacklist nanti
 }
+
+# Konfigurasi django-crontab
+CRONJOBS = [
+    ('0 * * * *', 'django.core.management.call_command', ['cancelExpiredOrders']),
+    ('0 0 * * *', 'django.core.management.call_command', ['clearExpiredCarts'])
+]
