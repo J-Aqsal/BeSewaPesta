@@ -45,6 +45,7 @@ class OrderItem(models.Model):
     )
     quantity = models.IntegerField()
     price = models.DecimalField(max_digits=12, decimal_places=2)
+    notes = models.TextField(blank=True, null=True)
 
     class Meta:
         db_table = 'order_items'

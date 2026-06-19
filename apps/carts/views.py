@@ -55,11 +55,12 @@ class CartAPIView(APIView):
         quantity = request.data.get("quantity", 1)
         startDate = request.data.get("startDate")
         endDate = request.data.get("endDate")
+        notes = request.data.get("notes")
 
         if not all([guestId, productId, startDate, endDate]):
             return errorResponse(message="guestId, idProduct, startDate, and endDate are required")
 
-        result = addItemToCart(guestId, productId, combinationId, quantity, startDate, endDate)
+        result = addItemToCart(guestId, productId, combinationId, quantity, startDate, endDate, notes)
 
         if not result["success"]:
             return errorResponse(message=result["message"])
@@ -71,11 +72,15 @@ class CartAPIView(APIView):
         guestId = request.data.get("guestId")
         cartItemId = request.data.get("idCartItem")
         quantity = request.data.get("quantity")
+        notes = request.data.get("notes")
 
-        if not all([guestId, cartItemId, quantity is not None]):
-            return errorResponse(message="guestId, idCartItem, and quantity are required")
+        if not guestId or not cartItemId:
+            return errorResponse(message="guestId and idCartItem are required")
+            
+        if quantity is None and notes is None:
+            return errorResponse(message="quantity or notes must be provided")
 
-        result = updateItemQuantityService(guestId, cartItemId, quantity)
+        result = updateItemQuantityService(guestId, cartItemId, quantity, notes)
 
         if not result["success"]:
             return errorResponse(message=result["message"])

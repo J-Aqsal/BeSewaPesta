@@ -13,6 +13,7 @@ from .repo import (
     addCartItem,
     getCartItemById,
     updateCartItemQuantity,
+    updateCartItemNotes,
     validateCartItemOwnership,
     deleteCartItem,
     updateCartActivity,
@@ -86,7 +87,8 @@ def getCartDetailByGuestId(guestId):
             "unitPrice": item["price_unit"],
             "pricePerItem": int(pricePerItem),
             "subtotalPrice": subtotalPrice,
-            "variantCombination": variantCombination
+            "variantCombination": variantCombination,
+            "notes": item.get("notes")
         })
 
     # Gunakan format ISO tanpa timezone (+07) untuk memudahkan FE
@@ -103,7 +105,7 @@ def getCartDetailByGuestId(guestId):
     }
 
 
-def addItemToCart(guestId, productId, combinationId, quantity, startDate=None, endDate=None):
+def addItemToCart(guestId, productId, combinationId, quantity, startDate=None, endDate=None, notes=None):
     # Check for pending orders within the last 24 hours
     has_pending = checkPendingOrderRepo(guestId)
     if has_pending:
@@ -163,13 +165,16 @@ def addItemToCart(guestId, productId, combinationId, quantity, startDate=None, e
             return {"success": False, "message": f"Requested quantity exceeds available stock. Available: {availableStock}"}
         
         updateCartItemQuantity(existingItem['id'], newQuantity)
+        if notes is not None:
+            updateCartItemNotes(existingItem['id'], notes)
+            
         updateCartActivity(cartId)
         return {"success": True, "message": "Item quantity updated in cart.", "cartId": cartId}
     else:
         if int(quantity) > availableStock:
             return {"success": False, "message": f"Requested quantity exceeds available stock. Available: {availableStock}"}
             
-        addCartItem(cartId, productId, combinationId, quantity)
+        addCartItem(cartId, productId, combinationId, quantity, notes)
         updateCartActivity(cartId)
         return {"success": True, "message": "Item added to cart.", "cartId": cartId}
 
@@ -188,7 +193,7 @@ def removeItemFromCart(cartItemId, guestId):
     return {"success": True, "message": "Item removed from cart."}
 
 
-def updateItemQuantityService(guestId, cartItemId, quantity):
+def updateItemQuantityService(guestId, cartItemId, quantity=None, notes=None):
     isValid = validateCartItemOwnership(cartItemId, guestId)
     
     if not isValid:
@@ -198,7 +203,7 @@ def updateItemQuantityService(guestId, cartItemId, quantity):
     if cart:
         updateCartActivity(cart['id'])
         
-    if int(quantity) <= 0:
+    if quantity is not None and int(quantity) <= 0:
         deleteCartItem(cartItemId)
         return {"success": True, "message": "Item removed from cart due to zero quantity."}
 
@@ -214,11 +219,15 @@ def updateItemQuantityService(guestId, cartItemId, quantity):
     else:
         availableStock = calculateAvailableStock(productId, startDate, endDate)
 
-    if int(quantity) > availableStock:
-        return {"success": False, "message": f"Requested quantity exceeds available stock. Available: {availableStock}"}
+    if quantity is not None:
+        if int(quantity) > availableStock:
+            return {"success": False, "message": f"Requested quantity exceeds available stock. Available: {availableStock}"}
+        updateCartItemQuantity(cartItemId, quantity)
         
-    updateCartItemQuantity(cartItemId, quantity)
-    return {"success": True, "message": "Item quantity updated."}
+    if notes is not None:
+        updateCartItemNotes(cartItemId, notes)
+
+    return {"success": True, "message": "Item updated."}
 
 
 def getExistingCategoriesService(guestId):

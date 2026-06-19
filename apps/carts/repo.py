@@ -33,11 +33,12 @@ def getCartItemsByCartId(cartId):
         price_unit=F('product__price_unit'),
         total_stock=F('product__total_stock'),
         category_name=F('product__category__name'),
-        combination_price=F('product_variant_combination__price')
+        combination_price=F('product_variant_combination__price'),
+        item_notes=F('notes')
     ).values(
         'id', 'product_id', 'quantity', 'product_variant_combination_id',
         'product_name', 'photo', 'product_price', 'price_unit',
-        'total_stock', 'category_name', 'combination_price'
+        'total_stock', 'category_name', 'combination_price', 'item_notes'
     ).order_by('id')
 
     results = []
@@ -53,7 +54,8 @@ def getCartItemsByCartId(cartId):
             "price_unit": item['price_unit'],
             "total_stock": item['total_stock'],
             "category_name": item['category_name'],
-            "combination_price": item['combination_price']
+            "combination_price": item['combination_price'],
+            "notes": item['item_notes']
         })
 
     return results
@@ -98,24 +100,29 @@ def getCartItem(cartId, productId, combinationId=None):
     return item
 
 
-def addCartItem(cartId, productId, combinationId, quantity):
+def addCartItem(cartId, productId, combinationId, quantity, notes=None):
     CartItem.objects.create(
         cart_id=cartId,
         product_id=productId,
         product_variant_combination_id=combinationId,
-        quantity=quantity
+        quantity=quantity,
+        notes=notes
     )
 
 
 def getCartItemById(cartItemId):
     item = CartItem.objects.filter(id=cartItemId).values(
-        'id', 'product_id', 'product_variant_combination_id', 'quantity'
+        'id', 'product_id', 'product_variant_combination_id', 'quantity', 'notes'
     ).first()
     return item
 
 
 def updateCartItemQuantity(cartItemId, newQuantity):
     CartItem.objects.filter(id=cartItemId).update(quantity=newQuantity)
+
+
+def updateCartItemNotes(cartItemId, newNotes):
+    CartItem.objects.filter(id=cartItemId).update(notes=newNotes)
 
 
 def validateCartItemOwnership(cartItemId, guestId):
