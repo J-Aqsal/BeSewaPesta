@@ -38,7 +38,7 @@ def getOrders():
         'order_id', 'guest_id', 'total_price', 'rental_start', 'rental_end',
         'recipient_name', 'phone_number', 'shipping_address', 'city',
         'shipping_cost', 'created_at', 'status_name', 'updated_at'
-    ).order_by('updated_at')
+    ).order_by('-updated_at')
     
     return list(orders)
 
