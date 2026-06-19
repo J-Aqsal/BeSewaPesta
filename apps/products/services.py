@@ -54,6 +54,8 @@ def getProductCatalogData(start_date, end_date):
             }
         )
 
+    catalog.sort(key=lambda x: (x['stock'] == 0, x['id']))
+
     return catalog
 
 

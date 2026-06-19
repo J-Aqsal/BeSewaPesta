@@ -143,7 +143,8 @@ def processCheckout(guestId, recipientName, phoneNumber, shippingAddress, city):
                     productId=item['idProduct'],
                     quantity=item['quantity'],
                     price=item['pricePerItem'],
-                    combinationId=combinationId
+                    combinationId=combinationId,
+                    notes=item.get('notes')
                 )
 
             clearCart(cartData['cartId'])
@@ -242,6 +243,7 @@ def getOrderDetail(orderId):
             "quantity": item["quantity"],
             "pricePerItem": int(item["price"]),
             "subtotal": int(item["price"] * item["quantity"]),
+            "notes": item.get("notes")
         })
     
     totalPrice = int(order["total_price"])
@@ -284,8 +286,6 @@ def checkoutDataService(guestId):
     totalDays = calculateDurationDays(order['rental_start'], order['rental_end'])
     totalRentalAmount = totalPrice - shippingCost
     from django.utils import timezone
-    print(order['created_at'])
-    print(order['created_at'].tzinfo)
 
     createdAt = order['created_at'].replace(tzinfo=dt_timezone.utc)
     paymentDeadline = timezone.localtime(

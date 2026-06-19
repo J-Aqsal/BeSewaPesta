@@ -26,6 +26,7 @@ class CartItem(models.Model):
         null=True
     )
     quantity = models.IntegerField(default=1)
+    notes = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -20,13 +20,14 @@ def insertOrder(guestId, totalPrice, statusId, rentalStart, rentalEnd, recipient
     return {"id": order.id}
 
 
-def insertOrderItem(orderId, productId, quantity, price, combinationId=None):
+def insertOrderItem(orderId, productId, quantity, price, combinationId=None, notes=None):
     OrderItem.objects.create(
         order_id=orderId,
         product_id=productId,
         quantity=quantity,
         price=price,
-        product_variant_combination_id=combinationId
+        product_variant_combination_id=combinationId,
+        notes=notes
     )
 
 
@@ -70,7 +71,7 @@ def getOrderItemsByOrderId(orderId):
         thumbnail=Subquery(first_gallery.values('image_url')[:1])
     ).values(
         'order_item_id', 'product_id', 'product_name', 'quantity', 'price',
-        'product_variant_combination_id', 'category_name', 'thumbnail'
+        'product_variant_combination_id', 'category_name', 'thumbnail', 'notes'
     )
     
     return list(items)
