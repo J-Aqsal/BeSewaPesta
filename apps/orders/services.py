@@ -185,8 +185,15 @@ def updateOrderStatusService(orderId, newStatusId):
 def getOrderStatusesService():
     return getOrderStatusesRepo()
 
-def getAllOrders(page=1, pageSize=10, sortBy='updated_at', sortOrder='desc'):
-    orders = getOrders()
+def getAllOrders(page=1, pageSize=10, sortBy='updated_at', sortOrder='desc', search=""):
+    statusLabels = {
+        "Pending Payment": "Belum Bayar",
+        "Down Payment 50%": "Bayar 50%",
+        "Fully Paid": "Bayar Lunas",
+        "Completed": "Selesai",
+        "Cancelled": "Dibatalkan",
+    }
+    orders = getOrders(search=search)
     sortFieldMap = {
         "idOrder": "order_id",
         "recipientName": "recipient_name",
@@ -225,7 +232,7 @@ def getAllOrders(page=1, pageSize=10, sortBy='updated_at', sortOrder='desc'):
             "shippingAddress": order["shipping_address"],
             "city": order["city"],
             "totalPrice": int(order["total_price"]),
-            "status": order["status_name"],
+            "status": statusLabels.get(order["status_name"], order["status_name"]),
             "createdAt": order["created_at"].strftime('%Y-%m-%d %H:%M:%S') if order["created_at"] else None,
             "updatedAt": order["updated_at"].strftime('%Y-%m-%d %H:%M:%S') if order["updated_at"] else None,
         })
