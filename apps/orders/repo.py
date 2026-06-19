@@ -1,8 +1,7 @@
 from .models import Order, OrderItem, OrderStatus
-from django.db.models import F, OuterRef, Subquery
+from django.db.models import F, Q, OuterRef, Subquery
 from django.utils import timezone
 from datetime import timedelta
-
 
 def insertOrder(guestId, totalPrice, statusId, rentalStart, rentalEnd, recipientName, phoneNumber, shippingAddress, city, shippingCost):
     order = Order.objects.create(
@@ -30,11 +29,27 @@ def insertOrderItem(orderId, productId, quantity, price, combinationId=None):
     )
 
 
-def getOrders():
+def getOrders(search=""):
+    statusMap = {
+        "belum bayar": "Pending Payment",
+        "bayar 50%": "Down Payment 50%",
+        "bayar lunas": "Fully Paid",
+        "selesai": "Completed",
+        "dibatalkan": "Cancelled",
+    }
     orders = Order.objects.select_related('status').annotate(
         order_id=F('id'),
         status_name=F('status__name')
-    ).values(
+    )
+    if search:
+        searchStatus = statusMap.get(search.lower(), search)
+        orders = orders.filter(
+            Q(id__icontains=search) |
+            Q(recipient_name__icontains=search) |
+            Q(phone_number__icontains=search) |
+            Q(status__name__icontains=searchStatus)
+        )
+    orders = orders.values(
         'order_id', 'guest_id', 'total_price', 'rental_start', 'rental_end',
         'recipient_name', 'phone_number', 'shipping_address', 'city',
         'shipping_cost', 'created_at', 'status_name', 'updated_at'
