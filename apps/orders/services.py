@@ -185,10 +185,37 @@ def updateOrderStatusService(orderId, newStatusId):
 def getOrderStatusesService():
     return getOrderStatusesRepo()
 
-def getAllOrders():
+def getAllOrders(page=1, pageSize=10, sortBy='updated_at', sortOrder='desc'):
     orders = getOrders()
+    sortFieldMap = {
+        "idOrder": "order_id",
+        "recipientName": "recipient_name",
+        "rentalStart": "rental_start",
+        "rentalEnd": "rental_end",
+        "phoneNumber": "phone_number",
+        "totalPrice": "total_price",
+        "status": "status_name",
+        "createdAt": "created_at",
+        "updatedAt": "updated_at",
+    }
+
+    sortField = sortFieldMap.get(sortBy, "updated_at")
+    reverse = sortOrder == "desc"
+
+    orders = sorted(
+        orders,
+        key=lambda order: order[sortField] if order[sortField] is not None else "",
+        reverse=reverse
+    )
+
+    totalItems = len(orders)
+    totalPages = math.ceil(totalItems / pageSize)
+    start = (page - 1) * pageSize
+    end = start + pageSize
+    paginatedOrders = orders[start:end]
+
     formattedOrders = []
-    for order in orders:
+    for order in paginatedOrders:
         formattedOrders.append({
             "idOrder": order["order_id"],
             "recipientName": order["recipient_name"],
@@ -202,7 +229,20 @@ def getAllOrders():
             "createdAt": order["created_at"].strftime('%Y-%m-%d %H:%M:%S') if order["created_at"] else None,
             "updatedAt": order["updated_at"].strftime('%Y-%m-%d %H:%M:%S') if order["updated_at"] else None,
         })
-    return formattedOrders
+    return {
+        "success": True,
+        "message": "Orders retrieved successfully.",
+        "data": {
+            "orders": formattedOrders,
+            "pagination": {
+                "page": page,
+                "pageSize": pageSize,
+                "totalItems": totalItems,
+                "totalPages": totalPages
+            }
+        }       
+    }
+
 
 def getOrderDetail(orderId):
     orderRows = getOrderByOrderId(orderId)
