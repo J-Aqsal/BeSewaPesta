@@ -31,8 +31,23 @@ class OrderAPIView(APIView):
 
     def get(self, request):
         """Action: List Orders"""
-        orders = getAllOrders()
-        return successResponse(data=orders)
+        page = int(request.GET.get("page", 1))
+        pageSize = int(request.GET.get("pageSize", 10))
+        sortBy = request.GET.get("sortBy", "updated_at")
+        sortOrder = request.GET.get("sortOrder", "desc")
+        if page < 1 or pageSize < 1:
+            return errorResponse(message="page and pageSize must be positive integers")
+        
+        if sortOrder not in ["asc", "desc"]:
+            return errorResponse(message="sortOrder must be asc or desc")
+        
+        result = getAllOrders(page=page, pageSize=pageSize, sortBy=sortBy, sortOrder=sortOrder)
+        
+        if not result["success"]:
+            return errorResponse(message=result["message"])
+
+        return successResponse(message=result["message"], data=result["data"])
+
 
     def post(self, request):
         """Action: Checkout"""
