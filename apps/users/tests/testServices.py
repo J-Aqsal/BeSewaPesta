@@ -33,7 +33,7 @@ class UserServicesTest(TestCase):
         """
         Input: username baru, password, fullName.
         Skenario: Membuat admin baru.
-        Expected Output: success True, user baru ada di database dan masuk grup 'Admin'.
+        Expected Output: success True, user baru ada di database dan masuk grup 'Admin' serta password di-hash.
         """
         result = createAdminService('admin2', '123', 'Admin Dua', True)
         self.assertTrue(result['success'])
@@ -41,6 +41,10 @@ class UserServicesTest(TestCase):
         user = User.objects.get(username='admin2')
         self.assertEqual(user.first_name, 'Admin Dua')
         self.assertTrue(user.groups.filter(name='Admin').exists())
+        
+        # Test: Pastikan password di-hash (tidak tersimpan sebagai plaintext)
+        self.assertNotEqual(user.password, '123')
+        self.assertTrue(user.check_password('123'))
 
     def testCreateAdminServiceDuplicateUsername(self):
         """

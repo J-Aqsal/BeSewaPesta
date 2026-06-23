@@ -37,6 +37,19 @@ class AuthAPIViewTest(APITestCase):
         response = self.client.post("/api/auth/login/", payload, format='json')
         self.assertEqual(response.status_code, 401)
 
+    def testLoginFailedWrongUsername(self):
+        """
+        Input: POST request ke /api/auth/login/ dengan username yang tidak terdaftar.
+        Skenario: User gagal login karena username salah/tidak ditemukan.
+        Expected Output: Status 401 Unauthorized.
+        """
+        payload = {
+            "username": "admin_tidak_ada",
+            "password": "123"
+        }
+        response = self.client.post("/api/auth/login/", payload, format='json')
+        self.assertEqual(response.status_code, 401)
+
     def testRefreshTokenSuccess(self):
         """
         Input: POST request ke /api/auth/refresh/ dengan refreshToken di cookie.
