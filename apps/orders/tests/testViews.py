@@ -47,7 +47,7 @@ class OrderAPIViewTest(APITestCase):
         data = {
             "guestId": self.guestId,
             "recipientName": "Budi",
-            "phoneNumber": "08123",
+            "phoneNumber": "08123456789",
             "shippingAddress": "Jl. Kemerdekaan",
             "city": "jakarta"
         }
@@ -90,7 +90,7 @@ class OrderAPIViewTest(APITestCase):
             rental_end=self.endDate,
             created_at=timezone.now(),
             recipient_name='Budi',
-            phone_number='08123',
+            phone_number='08123456789',
             shipping_address='Jl. Kemerdekaan',
             city='jakarta'
         )
