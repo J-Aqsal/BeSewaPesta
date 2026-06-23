@@ -4,12 +4,10 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from utils.responses import successResponse, errorResponse
-from .serializers import LoginSerializer
 from .services import AuthService
 
 
 class LoginAPIView(TokenObtainPairView):
-    serializer_class = LoginSerializer
     permission_classes = [AllowAny]
 
     def post(self, request, *args, **kwargs):
