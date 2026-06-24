@@ -97,3 +97,24 @@ class UserServicesTest(TestCase):
         result = editAdminService(self.admin.id, username='superadmin')
         self.assertFalse(result['success'])
         self.assertIn('already taken', result['message'])
+
+    def testCreateAdminServiceWithSpace(self):
+        """
+        Input: username baru yang mengandung spasi.
+        Skenario: Membuat admin baru dengan username berspasi.
+        Expected Output: success False.
+        """
+        result = createAdminService('admin dua', '123', 'Admin Dua', True)
+        self.assertFalse(result['success'])
+        self.assertIn('cannot contain spaces', result['message'])
+
+    def testEditAdminServiceWithSpace(self):
+        """
+        Input: id dari admin1, username diubah menjadi string berspasi.
+        Skenario: Mengubah username admin menjadi username yang mengandung spasi.
+        Expected Output: success False.
+        """
+        result = editAdminService(self.admin.id, username='admin satu')
+        self.assertFalse(result['success'])
+        self.assertIn('cannot contain spaces', result['message'])
+

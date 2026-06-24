@@ -15,6 +15,9 @@ def getAdminListService():
     return formattedAdmins
 
 def createAdminService(username, password, fullName, isActive=True):
+    if ' ' in username:
+        return {"success": False, "message": "Username cannot contain spaces."}
+        
     if User.objects.filter(username=username).exists():
         return {"success": False, "message": "Username already exists."}
     
@@ -54,6 +57,8 @@ def editAdminService(userId, username=None, fullName=None, password=None, isActi
         user = User.objects.get(id=userId)
         
         if username:
+            if ' ' in username:
+                return {"success": False, "message": "Username cannot contain spaces."}
             if User.objects.filter(username=username).exclude(id=userId).exists():
                 return {"success": False, "message": "Username already taken by another account."}
             user.username = username

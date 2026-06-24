@@ -92,9 +92,19 @@ def getProductUpsellRecursive(productId, startDate, endDate, quantity, visited):
 
     for rel in relations:
         targetProductId = rel['target_product_id']
-        availableStock = calculateAvailableStock(targetProductId, startDate, endDate)
         
-        if availableStock >= quantity:
+        combinationsData, _ = getVariantCombinations(targetProductId, startDate, endDate)
+        
+        if combinationsData:
+            maxAvailableStock = max([c['stock'] for c in combinationsData]) if combinationsData else 0
+            isValid = maxAvailableStock >= quantity
+            finalStock = maxAvailableStock
+        else:
+            availableStock = calculateAvailableStock(targetProductId, startDate, endDate)
+            isValid = availableStock >= quantity
+            finalStock = availableStock
+        
+        if isValid:
             return [{
                 "idUpsell": rel['id'],
                 "idProduct": targetProductId,
@@ -102,7 +112,7 @@ def getProductUpsellRecursive(productId, startDate, endDate, quantity, visited):
                 "thumbnail": getFullImageUrl(rel['product_photo']),
                 "price": int(rel['product_price']) if rel['product_price'] is not None else 0,
                 "priceUnit": rel['price_unit'],
-                "availableStock": availableStock,
+                "availableStock": finalStock,
                 "variantCombination": None
             }]
         else:
