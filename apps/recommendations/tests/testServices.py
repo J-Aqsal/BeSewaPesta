@@ -62,6 +62,45 @@ class RecommendationServicesTest(TestCase):
             quantity=1
         )
 
+        # Base product 2 (untuk test akumulasi stok)
+        self.productBase2 = Product.objects.create(name='Kursi Biasa', price=10000, price_unit='pcs', total_stock=1000, category=self.category2)
+        
+        # Target Upsell product with variants
+        self.productUpsellVariantTarget = Product.objects.create(name='Kursi VIP', price=20000, price_unit='pcs', total_stock=0, category=self.category2)
+        
+        self.vTypeVIP = VariantType.objects.create(product=self.productUpsellVariantTarget, name='Warna')
+        self.vOptVIP1 = VariantOption.objects.create(variant_type=self.vTypeVIP, value='Merah')
+        self.vOptVIP2 = VariantOption.objects.create(variant_type=self.vTypeVIP, value='Putih')
+        
+        self.combVIP1 = ProductVariantCombination.objects.create(product=self.productUpsellVariantTarget, price=20000, stock=50)
+        ProductVariantCombinationOption.objects.create(product_variant_combination=self.combVIP1, variant_option=self.vOptVIP1)
+        
+        self.combVIP2 = ProductVariantCombination.objects.create(product=self.productUpsellVariantTarget, price=20000, stock=70)
+        ProductVariantCombinationOption.objects.create(product_variant_combination=self.combVIP2, variant_option=self.vOptVIP2)
+
+        # Target Upsell product 2 with variants (Fallback)
+        self.productUpsellVariantFallback = Product.objects.create(name='Kursi VVIP', price=30000, price_unit='pcs', total_stock=0, category=self.category2)
+        
+        self.vTypeVVIP = VariantType.objects.create(product=self.productUpsellVariantFallback, name='Warna')
+        self.vOptVVIP1 = VariantOption.objects.create(variant_type=self.vTypeVVIP, value='Merah')
+        self.vOptVVIP2 = VariantOption.objects.create(variant_type=self.vTypeVVIP, value='Putih')
+        
+        self.combVVIP1 = ProductVariantCombination.objects.create(product=self.productUpsellVariantFallback, price=30000, stock=100)
+        ProductVariantCombinationOption.objects.create(product_variant_combination=self.combVVIP1, variant_option=self.vOptVVIP1)
+        
+        self.combVVIP2 = ProductVariantCombination.objects.create(product=self.productUpsellVariantFallback, price=30000, stock=100)
+        ProductVariantCombinationOption.objects.create(product_variant_combination=self.combVVIP2, variant_option=self.vOptVVIP2)
+
+        ProductUpsellRelation.objects.create(
+            source_product=self.productBase2,
+            target_product=self.productUpsellVariantTarget
+        )
+        
+        ProductUpsellRelation.objects.create(
+            source_product=self.productUpsellVariantTarget,
+            target_product=self.productUpsellVariantFallback
+        )
+
     def testGetUpsellingRecommendationsManual(self):
         """
         Input: productId dari produk utama (Tenda Reguler).
@@ -108,3 +147,32 @@ class RecommendationServicesTest(TestCase):
         self.assertTrue(len(recs) > 0)
         found = any(r['name'] == 'Kursi Lipat' for r in recs)
         self.assertTrue(found)
+
+    def testGetUpsellManualMaxVariantStock(self):
+        """
+        Input: productId (Kursi Biasa), quantity = 100.
+        Skenario: Kursi VIP punya 2 varian, masing-masing stok 50 dan 70 (total 120). 
+        Karena tidak ada yang satuan >= 100, produk ini dilewati. 
+        Lalu sistem fallback mengecek target berikutnya, yaitu Kursi VVIP (varian punya stok 100).
+        Expected Output: Rekomendasi yang muncul adalah Kursi VVIP, bukan Kursi VIP.
+        """
+        recs = getUpsellingRecommendations(
+            productId=self.productBase2.id,
+            startDate=self.startDate,
+            endDate=self.endDate,
+            quantity=100
+        )
+        self.assertEqual(len(recs), 1)
+        self.assertEqual(recs[0]['productName'], 'Kursi VVIP')
+        self.assertEqual(recs[0]['availableStock'], 100)
+
+        # Tapi kalau quantity = 50, harusnya direkomendasikan Kursi VIP karena max stoknya 70 (>= 50)
+        recs2 = getUpsellingRecommendations(
+            productId=self.productBase2.id,
+            startDate=self.startDate,
+            endDate=self.endDate,
+            quantity=50
+        )
+        self.assertEqual(len(recs2), 1)
+        self.assertEqual(recs2[0]['productName'], 'Kursi VIP')
+        self.assertEqual(recs2[0]['availableStock'], 70)
