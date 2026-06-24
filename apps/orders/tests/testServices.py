@@ -81,7 +81,7 @@ class OrderServicesTest(TestCase):
         result = processCheckout(
             guestId=self.guestId,
             recipientName='Budi',
-            phoneNumber='08123',
+            phoneNumber='08123456789',
             shippingAddress='Jalan A',
             city='jakarta'
         )
@@ -107,7 +107,7 @@ class OrderServicesTest(TestCase):
         processCheckout(
             guestId=self.guestId,
             recipientName='Budi',
-            phoneNumber='08123',
+            phoneNumber='08123456789',
             shippingAddress='Jalan A',
             city='jakarta'
         )
@@ -133,7 +133,7 @@ class OrderServicesTest(TestCase):
         processCheckout(
             guestId=self.guestId,
             recipientName='Budi',
-            phoneNumber='08123',
+            phoneNumber='08123456789',
             shippingAddress='Jalan A',
             city='jakarta'
         )
@@ -144,3 +144,54 @@ class OrderServicesTest(TestCase):
         
         order.refresh_from_db()
         self.assertEqual(order.status.id, self.paidStatus.id)
+
+    def testProcessCheckoutInvalidPhoneNumberShort(self):
+        """
+        Input: No HP kurang dari 9 digit.
+        Skenario: Pengguna mencoba checkout dengan no HP terlalu pendek.
+        Expected Output: success False, pesan error panjang no HP.
+        """
+        self._setup_cart()
+        result = processCheckout(
+            guestId=self.guestId,
+            recipientName='Budi',
+            phoneNumber='123',
+            shippingAddress='Jalan A',
+            city='jakarta'
+        )
+        self.assertFalse(result['success'])
+        self.assertIn('between 9 and 13', result['message'])
+
+    def testProcessCheckoutInvalidPhoneNumberLong(self):
+        """
+        Input: No HP lebih dari 13 digit.
+        Skenario: Pengguna mencoba checkout dengan no HP terlalu panjang.
+        Expected Output: success False, pesan error panjang no HP.
+        """
+        self._setup_cart()
+        result = processCheckout(
+            guestId=self.guestId,
+            recipientName='Budi',
+            phoneNumber='081234567890123',
+            shippingAddress='Jalan A',
+            city='jakarta'
+        )
+        self.assertFalse(result['success'])
+        self.assertIn('between 9 and 13', result['message'])
+
+    def testProcessCheckoutInvalidPhoneNumberLetters(self):
+        """
+        Input: No HP mengandung huruf.
+        Skenario: Pengguna mencoba checkout dengan no HP berhuruf.
+        Expected Output: success False, pesan error khusus angka.
+        """
+        self._setup_cart()
+        result = processCheckout(
+            guestId=self.guestId,
+            recipientName='Budi',
+            phoneNumber='081234abc',
+            shippingAddress='Jalan A',
+            city='jakarta'
+        )
+        self.assertFalse(result['success'])
+        self.assertIn('only digits', result['message'])
