@@ -217,7 +217,9 @@ def getAllOrders(page=1, pageSize=10, sortBy='updated_at', sortOrder='desc', sea
 
     orders = sorted(
         orders,
-        key=lambda order: order[sortField] if order[sortField] is not None else "",
+        key=lambda order: (order.get("recipient_name") or "").lower()
+        if sortField == "recipient_name"
+        else (order.get(sortField) or ""),
         reverse=reverse
     )
 
