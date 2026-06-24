@@ -8,10 +8,11 @@ ENV PYTHONUNBUFFERED 1
 # Set work directory
 WORKDIR /app
 
-# Install system dependencies for PostgreSQL (psycopg2)
+# Install system dependencies for PostgreSQL (psycopg2) and cron
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     gcc \
+    cron \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install dependencies
@@ -24,6 +25,5 @@ COPY . /app/
 # Expose the port Django runs on
 EXPOSE 8000
 
-# Command to run the application
-# We use 0.0.0.0 to allow access from outside the container
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# Command to run the application (starts cron, registers jobs, and runs server)
+CMD service cron start && python manage.py crontab add && python manage.py runserver 0.0.0.0:8000

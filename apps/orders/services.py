@@ -104,6 +104,11 @@ def getRentalSummaryService(guestId):
 
 
 def processCheckout(guestId, recipientName, phoneNumber, shippingAddress, city):
+    if not str(phoneNumber).isdigit():
+        return {"success": False, "message": "Phone number must contain only digits."}
+    if len(str(phoneNumber)) < 9 or len(str(phoneNumber)) > 13:
+        return {"success": False, "message": "Phone number must be between 9 and 13 digits."}
+
     cartData = getCartDetailByGuestId(guestId)
     if not cartData or not cartData['items']:
         return {"success": False, "message": "Cart is empty or not found."}

@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'apps.recommendations',
     'apps.authentication',
     'rest_framework_simplejwt.token_blacklist',
+    'django_crontab',
 ]
 
 MIDDLEWARE = [
@@ -145,10 +146,16 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
+    "ACCESS_TOKEN_LIFETIME": timedelta(seconds=10),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     "ALGORITHM": "HS256",
     "AUTH_HEADER_TYPES": ("Bearer",),
     "CHECK_USER_IS_ACTIVE": True,
     # kemungkinan tambah rotate dan blacklist nanti
 }
+
+# Konfigurasi django-crontab
+CRONJOBS = [
+    ('0 * * * *', 'django.core.management.call_command', ['cancelExpiredOrders']),
+    ('0 0 * * *', 'django.core.management.call_command', ['clearExpiredCarts'])
+]

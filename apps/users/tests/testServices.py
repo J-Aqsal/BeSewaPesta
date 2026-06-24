@@ -33,7 +33,7 @@ class UserServicesTest(TestCase):
         """
         Input: username baru, password, fullName.
         Skenario: Membuat admin baru.
-        Expected Output: success True, user baru ada di database dan masuk grup 'Admin'.
+        Expected Output: success True, user baru ada di database dan masuk grup 'Admin' serta password di-hash.
         """
         result = createAdminService('admin2', '123', 'Admin Dua', True)
         self.assertTrue(result['success'])
@@ -41,6 +41,10 @@ class UserServicesTest(TestCase):
         user = User.objects.get(username='admin2')
         self.assertEqual(user.first_name, 'Admin Dua')
         self.assertTrue(user.groups.filter(name='Admin').exists())
+        
+        # Test: Pastikan password di-hash (tidak tersimpan sebagai plaintext)
+        self.assertNotEqual(user.password, '123')
+        self.assertTrue(user.check_password('123'))
 
     def testCreateAdminServiceDuplicateUsername(self):
         """
@@ -93,3 +97,24 @@ class UserServicesTest(TestCase):
         result = editAdminService(self.admin.id, username='superadmin')
         self.assertFalse(result['success'])
         self.assertIn('already taken', result['message'])
+
+    def testCreateAdminServiceWithSpace(self):
+        """
+        Input: username baru yang mengandung spasi.
+        Skenario: Membuat admin baru dengan username berspasi.
+        Expected Output: success False.
+        """
+        result = createAdminService('admin dua', '123', 'Admin Dua', True)
+        self.assertFalse(result['success'])
+        self.assertIn('cannot contain spaces', result['message'])
+
+    def testEditAdminServiceWithSpace(self):
+        """
+        Input: id dari admin1, username diubah menjadi string berspasi.
+        Skenario: Mengubah username admin menjadi username yang mengandung spasi.
+        Expected Output: success False.
+        """
+        result = editAdminService(self.admin.id, username='admin satu')
+        self.assertFalse(result['success'])
+        self.assertIn('cannot contain spaces', result['message'])
+

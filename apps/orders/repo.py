@@ -126,15 +126,45 @@ def checkPendingOrderRepo(guestId):
 
 
 def cancelExpiredOrdersRepo(hoursThreshold=24):
+    from apps.carts.models import Cart, CartItem
     cutoff_time = timezone.now() - timedelta(hours=hoursThreshold)
-    updated_count = Order.objects.filter(
+    
+    expired_orders = Order.objects.filter(
         status_id=1,  # Pending Payment
         created_at__lte=cutoff_time
-    ).update(
-        status_id=5,  # Cancelled
-        updated_at=timezone.now()
     )
-    return updated_count
+    
+    count = 0
+    for order in expired_orders:
+        cart, created = Cart.objects.get_or_create(
+            guest_id=order.guest_id,
+            defaults={
+                'rental_start': order.rental_start,
+                'rental_end': order.rental_end
+            }
+        )
+        
+        order_items = OrderItem.objects.filter(order=order)
+        for item in order_items:
+            cart_item, ci_created = CartItem.objects.get_or_create(
+                cart=cart,
+                product=item.product,
+                product_variant_combination=item.product_variant_combination,
+                defaults={
+                    'quantity': item.quantity,
+                    'notes': item.notes
+                }
+            )
+            if not ci_created:
+                cart_item.quantity += item.quantity
+                cart_item.save()
+
+        order.status_id = 5  # Cancelled
+        order.updated_at = timezone.now()
+        order.save()
+        count += 1
+        
+    return count
 
 def getOrderByGuestId(guestId):
     order = Order.objects.select_related('status').filter(guest_id=guestId).annotate(
