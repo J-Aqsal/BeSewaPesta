@@ -1,5 +1,5 @@
 from .models import Order, OrderItem, OrderStatus
-from django.db.models import F, Q, OuterRef, Subquery
+from django.db.models import F, Q, OuterRef, Subquery, Case, When, Value, CharField
 from django.utils import timezone
 from datetime import timedelta
 
@@ -31,32 +31,34 @@ def insertOrderItem(orderId, productId, quantity, price, combinationId=None, not
 
 
 def getOrders(search=""):
-    statusMap = {
-        "belum bayar": "Pending Payment",
-        "bayar 50%": "Down Payment 50%",
-        "bayar lunas": "Fully Paid",
-        "selesai": "Completed",
-        "dibatalkan": "Cancelled",
-    }
     orders = Order.objects.select_related('status').annotate(
         order_id=F('id'),
-        status_name=F('status__name')
+        status_name=F('status__name'),
+        status_label=Case(
+            When(status__name="Pending Payment", then=Value("Belum Bayar")),
+            When(status__name="Down Payment 50%", then=Value("Bayar 50%")),
+            When(status__name="Fully Paid", then=Value("Bayar Lunas")),
+            When(status__name="Completed", then=Value("Selesai")),
+            When(status__name="Cancelled", then=Value("Dibatalkan")),
+            default=F("status__name"),
+            output_field=CharField(),
+        )
     )
     if search:
-        searchStatus = statusMap.get(search.lower(), search)
         orders = orders.filter(
             Q(id__icontains=search) |
             Q(recipient_name__icontains=search) |
             Q(phone_number__icontains=search) |
-            Q(status__name__icontains=searchStatus)
+            Q(status_label__icontains=search)
         )
     orders = orders.values(
         'order_id', 'guest_id', 'total_price', 'rental_start', 'rental_end',
         'recipient_name', 'phone_number', 'shipping_address', 'city',
-        'shipping_cost', 'created_at', 'status_name', 'updated_at'
+        'shipping_cost', 'created_at', 'status_name', 'status_label', 'updated_at'
     ).order_by('-updated_at')
     
     return list(orders)
+
 
 
 def getOrderByOrderId(orderId):
