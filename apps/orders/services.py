@@ -192,13 +192,6 @@ def getOrderStatusesService():
     return getOrderStatusesRepo()
 
 def getAllOrders(page=1, pageSize=10, sortBy='updated_at', sortOrder='desc', search=""):
-    statusLabels = {
-        "Pending Payment": "Belum Bayar",
-        "Down Payment 50%": "Bayar 50%",
-        "Fully Paid": "Bayar Lunas",
-        "Completed": "Selesai",
-        "Cancelled": "Dibatalkan",
-    }
     orders = getOrders(search=search)
     sortFieldMap = {
         "idOrder": "order_id",
@@ -217,7 +210,9 @@ def getAllOrders(page=1, pageSize=10, sortBy='updated_at', sortOrder='desc', sea
 
     orders = sorted(
         orders,
-        key=lambda order: order[sortField] if order[sortField] is not None else "",
+        key=lambda order: (order.get("recipient_name") or "").lower()
+        if sortField == "recipient_name"
+        else (order.get(sortField) or ""),
         reverse=reverse
     )
 
@@ -238,7 +233,7 @@ def getAllOrders(page=1, pageSize=10, sortBy='updated_at', sortOrder='desc', sea
             "shippingAddress": order["shipping_address"],
             "city": order["city"],
             "totalPrice": int(order["total_price"]),
-            "status": statusLabels.get(order["status_name"], order["status_name"]),
+            "status": order["status_label"],
             "createdAt": order["created_at"].strftime('%Y-%m-%d %H:%M:%S') if order["created_at"] else None,
             "updatedAt": order["updated_at"].strftime('%Y-%m-%d %H:%M:%S') if order["updated_at"] else None,
         })
