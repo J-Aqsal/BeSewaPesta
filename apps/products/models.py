@@ -95,10 +95,21 @@ class ProductVariantCombinationOption(models.Model):
         db_table = 'product_variant_combination_options'
 
 
+class TagGroup(models.Model):
+    name = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'tag_groups'
+
+    def __str__(self):
+        return self.name
+
+
 class Tag(models.Model):
+    group = models.ForeignKey(TagGroup, on_delete=models.CASCADE, related_name='tags', null=True, blank=True)
     name = models.CharField(unique=True, max_length=100)
     label = models.CharField(max_length=150)
-    group_name = models.CharField(max_length=50)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -109,8 +120,8 @@ class Tag(models.Model):
 
 
 class ProductTag(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.DO_NOTHING)
-    tag = models.ForeignKey(Tag, on_delete=models.DO_NOTHING)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='product_tags')
+    tag = models.ForeignKey(Tag, on_delete=models.CASCADE)
     weight = models.FloatField(default=0.0)
 
     class Meta:
@@ -136,3 +147,38 @@ class ProductUpsellRelation(models.Model):
 
     class Meta:
         db_table = 'product_upsell_relations'
+
+
+class ExpTagGroup(models.Model):
+    name = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'exp_tag_groups'
+
+    def __str__(self):
+        return self.name
+
+
+class ExpTag(models.Model):
+    group = models.ForeignKey(ExpTagGroup, on_delete=models.CASCADE, related_name='tags')
+    name = models.CharField(unique=True, max_length=100)
+    label = models.CharField(max_length=150)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'exp_tags'
+
+    def __str__(self):
+        return self.name
+
+
+class ExpProductTag(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='exp_product_tags')
+    tag = models.ForeignKey(ExpTag, on_delete=models.CASCADE)
+    weight = models.FloatField(default=0.0)
+
+    class Meta:
+        db_table = 'exp_product_tags'
+        unique_together = (('product', 'tag'),)
+

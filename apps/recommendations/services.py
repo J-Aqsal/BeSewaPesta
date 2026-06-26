@@ -7,7 +7,8 @@ from apps.products.repo import (
     getCombinationVariantDetails,
     getSimilarCombinationsWithHigherPrice,
     getVariantCombinations,
-    calculatePriceRange
+    calculatePriceRange,
+    getAllProductFeaturesExp
 )
 from apps.carts.repo import getCartItemsByCartId, getCartByGuestId, getVariantCombinationDetail
 from .repo import getProductUpsellRelations
@@ -160,6 +161,8 @@ def getCrossSellRecommendations(guestId):
 
     cartFeatures = {}
     rawCartFeatures = getAllProductFeatures(cartProductIds)
+    # rawCartFeatures = getAllProductFeaturesExp(cartProductIds)
+
     for row in rawCartFeatures:
         name = row['name']
         weight = float(row['weight'])
@@ -172,6 +175,8 @@ def getCrossSellRecommendations(guestId):
         return []
 
     allCandidateFeatures = getAllProductFeatures(candidateIds)
+    # allCandidateFeatures = getAllProductFeaturesExp(candidateIds)
+    
     candidateFeaturesMap = {}
     for row in allCandidateFeatures:
         p_id = row['product_id']

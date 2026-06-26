@@ -8,6 +8,7 @@ from .models import (
     ProductVariantCombination,
     ProductVariantCombinationOption,
     ProductTag,
+    ExpProductTag,
     Tag
 )
 from apps.orders.models import OrderItem, Order
@@ -283,6 +284,12 @@ def getAllProductFeatures(productIds):
         name=F('tag__name')
     ).values('product_id', 'name', 'weight'))
 
+def getAllProductFeaturesExp(productIds):
+    return list(ExpProductTag.objects.filter(
+        product_id__in=productIds
+    ).select_related('tag').annotate(
+        name=F('tag__name')
+    ).values('product_id', 'name', 'weight'))
 
 def getProductCategoryInfo(productIds):
     return list(Product.objects.filter(id__in=productIds).values('id', 'category_id'))
