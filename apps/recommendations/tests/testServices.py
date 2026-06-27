@@ -4,7 +4,7 @@ from datetime import timedelta
 import uuid
 from apps.products.models import (
     Category, Product, ProductUpsellRelation, VariantType, VariantOption,
-    ProductVariantCombination, ProductVariantCombinationOption, Tag, ProductTag
+    ProductVariantCombination, ProductVariantCombinationOption, Tag, TagGroup, ProductTag
 )
 from apps.carts.models import Cart, CartItem
 from apps.recommendations.services import getUpsellingRecommendations, getCrossSellRecommendations
@@ -35,7 +35,8 @@ class RecommendationServicesTest(TestCase):
         ProductVariantCombinationOption.objects.create(product_variant_combination=self.combUpsell, variant_option=self.vOpt2)
         
         # Tags for Cross Sell calculation
-        self.tagEvent = Tag.objects.create(name='Acara Outdoor', label='Acara Outdoor', group_name='Event')
+        self.tagGroup = TagGroup.objects.create(name='Event')
+        self.tagEvent = Tag.objects.create(name='Acara Outdoor', label='Acara Outdoor', group=self.tagGroup)
         ProductTag.objects.create(product=self.productBase, tag=self.tagEvent, weight=0.8)
         ProductTag.objects.create(product=self.productCrossSell, tag=self.tagEvent, weight=0.8)
 
