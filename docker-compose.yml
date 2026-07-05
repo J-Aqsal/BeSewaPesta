@@ -1,60 +1,19 @@
-version: '3.8'
-
 services:
-  nginx-proxy:
-    image: nginxproxy/nginx-proxy
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/run/docker.sock:/tmp/docker.sock:ro
-      - certs:/etc/nginx/certs
-      - vhost:/etc/nginx/vhost.d
-      - html:/usr/share/nginx/html
-    networks:
-      - sewapesta-network
-    restart: always
-
-  acme-companion:
-    image: nginxproxy/acme-companion
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - acme:/etc/acme.sh
-      - certs:/etc/nginx/certs
-      - vhost:/etc/nginx/vhost.d
-      - html:/usr/share/nginx/html
-    environment:
-    
-      - DEFAULT_EMAIL=aqsalacc@gmail.com
-    depends_on:
-      - nginx-proxy
-    networks:
-      - sewapesta-network
-    restart: always
-
   web:
     build: .
-    # ports: "8000:8000" dihapus karena aksesnya akan lewat Nginx (port 80/443)
+    ports:
+      - "8000"
     env_file:
       - .env
     volumes:
       - .:/app
     environment:
-      # Ini yang dibaca oleh Nginx-Proxy otomatis
       - VIRTUAL_HOST=besewapestakita.duckdns.org
       - LETSENCRYPT_HOST=besewapestakita.duckdns.org
       - VIRTUAL_PORT=8000
     restart: always
-    networks:
-      - sewapesta-network
-
-volumes:
-  certs:
-  vhost:
-  html:
-  acme:
 
 networks:
-  sewapesta-network:
-    name: sewapesta-network
-
+  default:
+    name: aplikasi-penyewaan-alat-pesta_default 
+    external: true
