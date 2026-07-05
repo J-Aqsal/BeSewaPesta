@@ -29,7 +29,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['172.168.101.68', 'localhost', '10.178.162.16', '127.0.0.1', '143.198.196.223']
+ALLOWED_HOSTS = ['172.168.101.68', 'localhost', '10.178.162.16', '127.0.0.1', '143.198.196.223', 'besewapestakita.duckdns.org']
 
 
 # Application definition
@@ -65,6 +65,8 @@ MIDDLEWARE = [
 CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
+    "http://143.198.196.223:8080",
+    "https://sewapestakita.duckdns.org",
 ]  
 CORS_ALLOW_CREDENTIALS = True  
 ROOT_URLCONF = 'config.urls'
