@@ -1,4 +1,38 @@
 services:
+    # 1. Nginx Reverse Proxy
+  nginx-proxy:
+    image: nginxproxy/nginx-proxy
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - certs:/etc/nginx/certs
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+    restart: always
+
+  # 2. ACME Companion (Pengurus HTTPS)
+  acme-companion:
+    image: nginxproxy/acme-companion
+    environment:
+      # Email ini bebas, dipakai oleh Let's Encrypt
+      - DEFAULT_EMAIL=admin@besewapestakita.duckdns.org
+      - NGINX_PROXY_CONTAINER=nginx-proxy
+    volumes:
+      - certs:/etc/nginx/certs
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - acme:/etc/acme.sh
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    volumes_from:
+      - nginx-proxy
+    depends_on:
+      - nginx-proxy
+    restart: always
+
+  # 3. Backend API Kamu
   web:
     build: .
     expose:
@@ -13,7 +47,8 @@ services:
       - VIRTUAL_PORT=8000
     restart: always
 
-networks:
-  default:
-    name: sewapesta-network
-    external: true
+volumes:
+  certs:
+  vhost:
+  html:
+  acme:
