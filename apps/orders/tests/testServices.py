@@ -42,7 +42,8 @@ class OrderServicesTest(TestCase):
         CartItem.objects.create(
             cart=cart,
             product=self.product,
-            quantity=2
+            quantity=2,
+            notes='Tolong packing rapi'
         )
         return cart
 
@@ -95,6 +96,8 @@ class OrderServicesTest(TestCase):
         order = Order.objects.get(id=orderId)
         self.assertEqual(order.recipient_name, 'Budi')
         self.assertEqual(order.city, 'jakarta')
+        order_items = order.order_items.all()
+        self.assertEqual(order_items.first().notes, 'Tolong packing rapi')
 
     def testCheckoutDataServiceDeadline(self):
         """
