@@ -33,7 +33,8 @@ class OrderAPIViewTest(APITestCase):
         CartItem.objects.create(
             cart=cart,
             product=self.product,
-            quantity=2
+            quantity=2,
+            notes='Tolong packing rapi'
         )
         return cart
 
@@ -56,6 +57,10 @@ class OrderAPIViewTest(APITestCase):
         self.assertEqual(response.status_code, SUCCESS_CODE)
         self.assertTrue(response.json()['success'])
         self.assertIn("paymentDeadline", response.json()['data'])
+        
+        # Verify order item is created with notes
+        order_items = OrderItem.objects.filter(order_id=response.json()['data']['orderId'])
+        self.assertEqual(order_items.first().notes, "Tolong packing rapi")
 
     def testPostCheckoutMissingFields(self):
         """
